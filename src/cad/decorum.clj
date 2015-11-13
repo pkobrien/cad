@@ -173,6 +173,28 @@
 
 (spit-scad "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
 
+(defn cuboid-vase-test-05 [low-res]
+  (let [x 30 y 30 z 90
+        focus [-30 30 (- 30 z)]
+        focus-shape (sphere 3 :fn 24)
+        ;outer (vec (:wires (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape)))
+        ;outer (concat (subvec outer 0 2) (subvec outer (inc 2)))
+        ;outer (if low-res (apply union outer)
+        ;                  (let [r 1 fn 8 steps 4]
+        ;                    (apply fillet r fn steps outer)))
+        middle (vec (:concs (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape)))
+        middle (concat (subvec middle 0 2) (subvec middle (inc 2)))
+        base (:base (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        object (if low-res (apply union (cons base middle))
+                           (let [r 1 fn 8 steps 4]
+                             (apply fillet r fn steps (cons base middle))))
+        ;object (union outer middle base)
+        ;object (union middle base)
+        ]
+    object))
+
+(spit-scad "decorum-cuboid-vase-test-05.low-res" (cuboid-vase-test-05 true))
+
 (comment
   (spit-scad "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
   (spit-scad "decorum-cuboid-vase-test-01" (cuboid-vase-test-01 false))
@@ -182,6 +204,8 @@
   (spit-scad "decorum-cuboid-vase-test-03" (cuboid-vase-test-03 false))
   (spit-scad "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
   (spit-scad "decorum-cuboid-vase-test-04" (cuboid-vase-test-04 false))
+  (spit-scad "decorum-cuboid-vase-test-05.low-res" (cuboid-vase-test-05 true))
+  (spit-scad "decorum-cuboid-vase-test-05" (cuboid-vase-test-05 false))
   )
 
 
