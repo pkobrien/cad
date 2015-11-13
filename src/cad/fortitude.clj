@@ -109,7 +109,7 @@
                            (cube 11 11 2))]
     object))
 
-(spit-scad "fortitude-test-03" (fortitude-test-03 true))
+;(spit-scad "fortitude-test-03" (fortitude-test-03 true))
 
 (defn fortitude-04 []
   (let [point-shape (cube 1 1 1)
