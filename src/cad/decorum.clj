@@ -55,6 +55,137 @@
 
 
 ; ==============================================================================
+; Cube Vase
+
+(defn platonic-hexahedron [size-x size-y size-z point-shape focus focus-shape]
+  (let [face-verts (fn [face] (into #{} (for [edge face vert edge] vert)))
+        pin (fn [vert] (translate vert point-shape))
+        verts [[1 1 1]
+               [1 1 -1]
+               [1 -1 -1]
+               [1 -1 1]
+               [-1 -1 1]
+               [-1 -1 -1]
+               [-1 1 -1]
+               [-1 1 1]]
+        verts (for [[x y z] verts] [(* x size-x) (* y size-y) (* z size-z)])
+        base-verts (cons focus (for [[x y z] verts :when (neg? z)] [x y z]))
+        edges [[0 1] [1 2] [2 3] [3 0]
+               [4 5] [5 6] [6 7] [7 4]
+               [0 7] [6 1] [2 5] [4 3]]
+        edges (for [edge edges] (for [vert edge] (nth verts vert)))
+        faces [[0 1 2 3] [6 9 0 8] [4 5 6 7] [2 10 4 11] [3 11 7 8] [5 10 1 9]]
+        faces (for [face faces] (for [edge face] (nth edges edge)))
+        base (apply hull (cons (translate focus focus-shape)
+                               (for [vert base-verts] (pin vert))))
+        concs (for [edge edges]
+                (apply hull (cons (translate focus focus-shape)
+                                  (for [vert edge] (pin vert)))))
+        solid (apply hull (for [vert verts] (pin vert)))
+        vess-edges [[0 3] [3 4] [4 7] [7 0]]
+        vess-edges (for [edge vess-edges] (for [vert edge] (nth verts vert)))
+        vessel (for [edge vess-edges]
+                 (apply hull (cons (translate focus focus-shape)
+                                   (for [vert edge] (pin vert)))))
+        walls (for [face faces]
+                (apply hull (for [vert (face-verts face)] (pin vert))))
+        wires (for [edge edges]
+                (apply hull (for [vert edge] (pin vert))))
+        parts {:base base
+               :concs concs
+               :solid solid
+               :vessel vessel
+               :walls walls
+               :wires wires}]
+    parts))
+
+(defn cuboid-vase-test-01 [low-res]
+  (let [x 30 y 30 z 90
+        focus [0 0 (- 30 z)]
+        focus-shape (sphere 3 :fn 24)
+        outer (:wires (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        outer (if low-res (apply union outer)
+                          (let [r 1 fn 8 steps 4]
+                            (apply fillet r fn steps outer)))
+        middle (:concs (platonic-hexahedron x y z (sphere 2 :fn 8) focus focus-shape))
+        middle (if low-res (apply union middle)
+                           (let [r 1 fn 8 steps 4]
+                             (apply fillet r fn steps middle)))
+        base (:base (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        object (union outer middle base)]
+    object))
+
+(spit-scad "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
+
+(defn cuboid-vase-test-02 [low-res]
+  (let [x 30 y 30 z 90
+        focus [0 0 (- 30 z)]
+        focus-shape (sphere 3 :fn 24)
+        outer (:wires (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        outer (if low-res (apply union outer)
+                          (let [r 1 fn 8 steps 4]
+                            (apply fillet r fn steps outer)))
+        vessel (:vessel (platonic-hexahedron x y z (sphere 2 :fn 24) focus focus-shape))
+        vessel (if low-res (apply union vessel)
+                           (let [r 1 fn 8 steps 4]
+                             (apply fillet r fn steps vessel)))
+        base (:base (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        inner (if low-res (union vessel base)
+                           (let [r 1 fn 8 steps 4]
+                             (fillet r fn steps vessel base)))
+        object (union outer inner)]
+    object))
+
+(spit-scad "decorum-cuboid-vase-test-02.low-res" (cuboid-vase-test-02 true))
+
+(defn cuboid-vase-test-03 [low-res]
+  (let [x 30 y 30 z 90
+        focus [0 0 (- 30 z)]
+        focus-shape (sphere 3 :fn 24)
+        vessel (:vessel (platonic-hexahedron x y z (sphere 2 :fn 24) focus focus-shape))
+        vessel (if low-res (apply union vessel)
+                           (let [r 1 fn 8 steps 4]
+                             (apply fillet r fn steps vessel)))
+        base (:base (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        inner (if low-res (union vessel base)
+                          (let [r 1 fn 8 steps 4]
+                            (fillet r fn steps vessel base)))
+        object inner]
+    object))
+
+(spit-scad "decorum-cuboid-vase-test-03.low-res" (cuboid-vase-test-03 true))
+
+(defn cuboid-vase-test-04 [low-res]
+  (let [x 30 y 30 z 90
+        focus [0 0 (- 30 z)]
+        focus-shape (sphere 3 :fn 24)
+        vessel (:vessel (platonic-hexahedron x y z (sphere 2 :fn 24) focus focus-shape))
+        vessel (if low-res (apply union vessel)
+                           (let [r 1 fn 8 steps 4]
+                             (apply fillet r fn steps vessel)))
+        middle (:concs (platonic-hexahedron x y z (sphere 2 :fn 24) focus focus-shape))
+        middle (if low-res (apply union middle)
+                           (let [r 1 fn 8 steps 4]
+                             (apply fillet r fn steps middle)))
+        base (:base (platonic-hexahedron x y z (sphere 3 :fn 24) focus focus-shape))
+        object (union vessel middle base)]
+    object))
+
+(spit-scad "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
+
+(comment
+  (spit-scad "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
+  (spit-scad "decorum-cuboid-vase-test-01" (cuboid-vase-test-01 false))
+  (spit-scad "decorum-cuboid-vase-test-02.low-res" (cuboid-vase-test-02 true))
+  (spit-scad "decorum-cuboid-vase-test-02" (cuboid-vase-test-02 false))
+  (spit-scad "decorum-cuboid-vase-test-03.low-res" (cuboid-vase-test-03 true))
+  (spit-scad "decorum-cuboid-vase-test-03" (cuboid-vase-test-03 false))
+  (spit-scad "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
+  (spit-scad "decorum-cuboid-vase-test-04" (cuboid-vase-test-04 false))
+  )
+
+
+; ==============================================================================
 ; Cube Bowl
 
 (defn cube-bowl
