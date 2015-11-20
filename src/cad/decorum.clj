@@ -1,22 +1,13 @@
 (ns cad.decorum
   (:refer-clojure :exclude [import use])
-  (:require [scad-clj.model :refer :all]
-            [scad-clj.write :refer [write-scad]]))
+  (:require [cad.core :refer [cartesian-product fillet spit-scad]]
+            [scad-clj.model :refer :all]))
+
 
 ; ==============================================================================
 ; Shared constants and functions
 
-(defn spit-scad
-  [filename object]
-  (spit (str "output/decorum/" filename ".scad") (write-scad object)))
-
-(defn cartesian-product
-  ([]
-   '(()))
-  ([xs & more]
-   (mapcat #(map (partial cons %)
-                 (apply cartesian-product more))
-           xs)))
+(def write (partial spit-scad "output/decorum/"))
 
 (def max-bounding-box-shapeways [125 125 200])
 
@@ -32,26 +23,6 @@
 
 (defn smooth [r fn object]
   (->> object (minkowski (sphere r :fn fn))))
-
-(defn offset-3d [r fn object]
-  [(note "Offset 3D:") (->> object (minkowski (sphere r :fn fn)))])
-
-(defn fillet [r fn steps & children] ; fn should be a multiple of 4
-  (let [pieces (for [[i1 child1] (map-indexed vector children)
-                     [i2 child2] (map-indexed vector children)
-                     :when (< i1 i2)]
-                 (let [inter1 (intersection child1 child2)]
-                   (for [step (range 1 (inc steps))]
-                     (let [r2 (* r (/ step steps))
-                           r3 (* r (/ (+ 1 (- steps step)) steps))
-                           offset1 (offset-3d r2 fn inter1)
-                           offset2 (offset-3d r3 fn inter1)
-                           inter2 (render (intersection child1 offset1))
-                           inter3 (render (intersection child2 offset2))]
-                       (hull inter2 inter3)))))]
-    (union (apply union children)
-           (note "Fillets:")
-           (apply union pieces))))
 
 
 ; ==============================================================================
@@ -115,7 +86,7 @@
         object (union outer middle base)]
     object))
 
-(spit-scad "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
+;(write "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
 
 (defn cuboid-vase-test-02 [low-res]
   (let [x 30 y 30 z 90
@@ -136,7 +107,7 @@
         object (union outer inner)]
     object))
 
-(spit-scad "decorum-cuboid-vase-test-02.low-res" (cuboid-vase-test-02 true))
+;(write "decorum-cuboid-vase-test-02.low-res" (cuboid-vase-test-02 true))
 
 (defn cuboid-vase-test-03 [low-res]
   (let [x 30 y 30 z 90
@@ -153,7 +124,7 @@
         object inner]
     object))
 
-(spit-scad "decorum-cuboid-vase-test-03.low-res" (cuboid-vase-test-03 true))
+;(write "decorum-cuboid-vase-test-03.low-res" (cuboid-vase-test-03 true))
 
 (defn cuboid-vase-test-04 [low-res]
   (let [x 30 y 30 z 90
@@ -171,7 +142,7 @@
         object (union vessel middle base)]
     object))
 
-(spit-scad "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
+;(write "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
 
 (defn cuboid-vase-test-05 [low-res]
   (let [x 30 y 30 z 90
@@ -193,19 +164,53 @@
         ]
     object))
 
-(spit-scad "decorum-cuboid-vase-test-05.low-res" (cuboid-vase-test-05 true))
+;(write "decorum-cuboid-vase-test-05.low-res" (cuboid-vase-test-05 true))
+
+(defn cuboid-vase-test-06 [low-res]
+  (let [x 50 y 50 z 80
+        fn 32
+        focus [-50 50 -80]
+        focus-shape (sphere 3 :fn fn)
+        vessel (:vessel (platonic-hexahedron x y z (sphere 3 :fn fn) focus focus-shape))
+        walls (:walls (platonic-hexahedron x y z (sphere 3 :fn fn) focus focus-shape))
+        walls [(nth walls 2) (nth walls 1)]
+        object (if low-res (apply union (concat vessel walls))
+                           (let [r 1 fn 16 steps 4]
+                             (apply fillet r fn steps (concat vessel walls))))]
+    object))
+
+;(write "decorum-cuboid-vase-test-06.low-res" (cuboid-vase-test-06 true))
+
+(defn cuboid-vase-test-07 [low-res]
+  (let [x 50 y 50 z 80
+        fn 32
+        focus [-50 50 -80]
+        focus-shape (sphere 3 :fn fn)
+        vessel (:vessel (platonic-hexahedron x y z (sphere 3 :fn fn) focus focus-shape))
+        walls (:walls (platonic-hexahedron x y z (sphere 3 :fn fn) focus focus-shape))
+        walls [(nth walls 0) (nth walls 1)]
+        object (if low-res (apply union (concat vessel walls))
+                           (let [r 1 fn 16 steps 4]
+                             (apply fillet r fn steps (concat vessel walls))))]
+    object))
+
+;(write "decorum-cuboid-vase-test-07.low-res" (cuboid-vase-test-07 true))
 
 (comment
-  (spit-scad "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
-  (spit-scad "decorum-cuboid-vase-test-01" (cuboid-vase-test-01 false))
-  (spit-scad "decorum-cuboid-vase-test-02.low-res" (cuboid-vase-test-02 true))
-  (spit-scad "decorum-cuboid-vase-test-02" (cuboid-vase-test-02 false))
-  (spit-scad "decorum-cuboid-vase-test-03.low-res" (cuboid-vase-test-03 true))
-  (spit-scad "decorum-cuboid-vase-test-03" (cuboid-vase-test-03 false))
-  (spit-scad "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
-  (spit-scad "decorum-cuboid-vase-test-04" (cuboid-vase-test-04 false))
-  (spit-scad "decorum-cuboid-vase-test-05.low-res" (cuboid-vase-test-05 true))
-  (spit-scad "decorum-cuboid-vase-test-05" (cuboid-vase-test-05 false))
+  (write "decorum-cuboid-vase-test-01.low-res" (cuboid-vase-test-01 true))
+  (write "decorum-cuboid-vase-test-01" (cuboid-vase-test-01 false))
+  (write "decorum-cuboid-vase-test-02.low-res" (cuboid-vase-test-02 true))
+  (write "decorum-cuboid-vase-test-02" (cuboid-vase-test-02 false))
+  (write "decorum-cuboid-vase-test-03.low-res" (cuboid-vase-test-03 true))
+  (write "decorum-cuboid-vase-test-03" (cuboid-vase-test-03 false))
+  (write "decorum-cuboid-vase-test-04.low-res" (cuboid-vase-test-04 true))
+  (write "decorum-cuboid-vase-test-04" (cuboid-vase-test-04 false))
+  (write "decorum-cuboid-vase-test-05.low-res" (cuboid-vase-test-05 true))
+  (write "decorum-cuboid-vase-test-05" (cuboid-vase-test-05 false))
+  (write "decorum-cuboid-vase-test-06.low-res" (cuboid-vase-test-06 true))
+  (write "decorum-cuboid-vase-test-06" (cuboid-vase-test-06 false))
+  (write "decorum-cuboid-vase-test-07.low-res" (cuboid-vase-test-07 true))
+  (write "decorum-cuboid-vase-test-07" (cuboid-vase-test-07 false))
   )
 
 
@@ -261,9 +266,9 @@
     object))
 
 (comment
-  (spit-scad "decorum-cube-bowl-test-01" (cube-bowl-test-01))
-  (spit-scad "decorum-cube-bowl-test-02" (cube-bowl-test-02))
-  (spit-scad "decorum-cube-bowl-test-03" (cube-bowl-test-03))
+  (write "decorum-cube-bowl-test-01" (cube-bowl-test-01))
+  (write "decorum-cube-bowl-test-02" (cube-bowl-test-02))
+  (write "decorum-cube-bowl-test-03" (cube-bowl-test-03))
   )
 
 
@@ -443,16 +448,16 @@
     (delta-vase r-heel z-heel r-toe x-toe z-toe r-head x-head z-head sides fillet-r fillet-steps)))
 
 (comment
-  (spit-scad "decorum-delta-vase-test-01" (delta-vase-test-01))
-  (spit-scad "decorum-delta-vase-test-02" (delta-vase-test-02))
-  (spit-scad "decorum-delta-vase-test-03" (delta-vase-test-03))
-  (spit-scad "decorum-delta-vase-test-04" (delta-vase-test-04))
-  (spit-scad "decorum-delta-vase-test-05" (delta-vase-test-05))
-  (spit-scad "decorum-delta-vase-test-06" (delta-vase-test-06))
-  (spit-scad "decorum-delta-vase-test-07" (delta-vase-test-07))
-  (spit-scad "decorum-delta-vase-test-08" (delta-vase-test-08))
-  (spit-scad "decorum-delta-vase-test-09" (delta-vase-test-09))
-  (spit-scad "decorum-delta-vase-test-10" (delta-vase-test-10))
+  (write "decorum-delta-vase-test-01" (delta-vase-test-01))
+  (write "decorum-delta-vase-test-02" (delta-vase-test-02))
+  (write "decorum-delta-vase-test-03" (delta-vase-test-03))
+  (write "decorum-delta-vase-test-04" (delta-vase-test-04))
+  (write "decorum-delta-vase-test-05" (delta-vase-test-05))
+  (write "decorum-delta-vase-test-06" (delta-vase-test-06))
+  (write "decorum-delta-vase-test-07" (delta-vase-test-07))
+  (write "decorum-delta-vase-test-08" (delta-vase-test-08))
+  (write "decorum-delta-vase-test-09" (delta-vase-test-09))
+  (write "decorum-delta-vase-test-10" (delta-vase-test-10))
   )
 
 
@@ -514,9 +519,9 @@
     object))
 
 (comment
-  (spit-scad "decorum-foo-test-01" (foo-test-01))
-  (spit-scad "decorum-foo-test-02" (foo-test-02))
-  (spit-scad "decorum-foo-test-03" (foo-test-03))
+  (write "decorum-foo-test-01" (foo-test-01))
+  (write "decorum-foo-test-02" (foo-test-02))
+  (write "decorum-foo-test-03" (foo-test-03))
   )
 
 
@@ -543,5 +548,5 @@
     object))
 
 (comment
-  (spit-scad "decorum-bar-test-01" (bar-test-01))
+  (write "decorum-bar-test-01" (bar-test-01))
   )
