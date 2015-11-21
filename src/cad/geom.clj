@@ -1,8 +1,6 @@
 (ns cad.geom
-  (:refer-clojure :exclude [import use])
   (:require [clojure.java.io :as io]
-            [cad.core :refer [cartesian-product fillet spit-scad]]
-            [scad-clj.model :refer :all]
+            [clojure.data.xml :as xml]
             [thi.ng.geom.aabb :as ab]
             [thi.ng.geom.basicmesh :as bm]
             [thi.ng.geom.bezier :as bz]
@@ -43,6 +41,82 @@
     (mio/write-stl
       (mio/wrapped-output-stream out)
       (g/tessellate mesh))))
+
+(defn xml-emit
+  "Prints the given Element tree as XML text to stream.
+   Options:
+    :encoding <str>          Character encoding to use
+    :doctype  <str>          Document type (DOCTYPE) declaration to use"
+  [e ^java.io.Writer stream & {:keys [encoding doctype] :or {encoding "UTF-8"}}]
+  (let [^javax.xml.stream.XMLStreamWriter writer (-> (javax.xml.stream.XMLOutputFactory/newInstance)
+                                                     (.createXMLStreamWriter stream))]
+    (when (instance? java.io.OutputStreamWriter stream)
+      (xml/check-stream-encoding stream encoding))
+    (.writeStartDocument writer encoding "1.0")
+    (when doctype
+      (.writeDTD writer doctype))
+    (doseq [event (xml/flatten-elements [e])]
+      (xml/emit-event event writer))
+    (.writeEndDocument writer)
+    stream))
+
+(defn xml-emit-indented
+  "Emits the XML and indents the result.  WARNING: this is slow
+   it will emit the XML and read it in again to indent it.  Intended for
+   debugging/testing only."
+  [e ^java.io.Writer stream & {:as opts}]
+  (let [sw (java.io.StringWriter.)
+        _ (apply xml-emit e sw (apply concat opts))
+        source (-> sw .toString java.io.StringReader. javax.xml.transform.stream.StreamSource.)
+        result (javax.xml.transform.stream.StreamResult. stream)]
+    (.transform (xml/indenting-transformer) source result)))
+
+(defn write-x3d
+  "Writes the given mesh as X3D XML to output stream wrapper."
+  [out mesh indent? meta]
+  (let [vertices (g/vertices mesh)
+        vindex (zipmap vertices (range))
+        vnormals (g/vertex-normals mesh false)
+        vnorms? (not (nil? (seq vnormals)))
+        nindex (zipmap vnormals (range))
+        faces (g/faces mesh)
+        fnormals (g/face-normals mesh true)
+        contents (xml/sexp-as-element
+                   [:X3D {:version "3.3" :profile "Immersive"}
+                    (when (seq meta)
+                      [:head
+                       (for [[k v] meta]
+                         [:meta {:name (name k) :content (str v)}])])
+                    [:Scene
+                     [:Shape
+                      [:IndexedFaceSet {:solid "true"}
+                       [:Coordinate {:point ""}]
+                       [:Normal {:vector ""}]
+                       ]]]])
+        doctype "<!DOCTYPE X3D PUBLIC \"ISO//Web3D//DTD X3D 3.3//EN\" \"http://www.web3d.org/specifications/x3d-3.3.dtd\">"
+        emit (if indent? xml-emit-indented xml-emit)]
+    (emit contents out :doctype doctype)
+    out))
+
+(defn save-x3d
+  [path mesh & {:keys [indent? meta] :or {indent? false}}]
+  (with-open [out (io/writer path)]
+    (write-x3d out (g/tessellate mesh) indent? meta)))
+
+(defn pob-save-x3d
+  [path mesh & {:keys [indent?] :or {indent? false}}]
+  (let [meta (array-map
+               :creator "Patrick K. O'Brien"
+               :created "21 November 2015"
+               :copyright "Copyright 2015 Patrick K. O'Brien")]
+    (save-x3d path mesh :indent? indent? :meta meta)))
+
+(defn x3d-test-mesh []
+  (-> (cu/cuboid -5 10) (g/as-mesh)))
+
+(time (pob-save-x3d "output/geom/x3d-test-mesh.x3d" (x3d-test-mesh)))
+(time (pob-save-x3d "output/geom/x3d-test-mesh-indented.x3d" (x3d-test-mesh) :indent? true))
+
 
 ;(defn p-mesh
 ;  [f scale]

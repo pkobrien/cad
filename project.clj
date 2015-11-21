@@ -1,5 +1,5 @@
 (defproject cad "0.1.0-SNAPSHOT"
-  :description "3D Printable Designs using Clojure and OpenSCAD"
+  :description "3D Printable Designs using Clojure"
   :url "https://github.com/pkobrien/cad"
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/data.xml "0.0.8"]
