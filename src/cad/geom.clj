@@ -74,20 +74,20 @@
 
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
-  [out mesh indent? meta]
+  [out mesh indent? units meta]
   (let [faces (g/faces mesh)
         vertices (vec (g/vertices mesh))
         vindex (zipmap vertices (range))
-        fcolors (into {} (for [face faces] [face [1 0 0]]))
+        fcolors (into {} (for [face faces] [face [1 0 0 1]]))
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
         fnormals (g/face-normals mesh true)
         get-normal (fn [face] (or (get fnormals face) (gu/ortho-normal face)))
         normals (vec (set (map get-normal faces)))
         nindex (zipmap normals (range))
-        index-format (fn [f coll] (str (string/join " -1 " (map f coll)) " -1"))
+        per-v-format (fn [f coll] (str (string/join " -1 " (map f coll)) " -1"))
         coord-format (fn [face] (string/join " " (mapv #(get vindex %) face)))
-        coord-index (index-format coord-format faces)
+        coord-index (per-v-format coord-format faces)
         color-format (fn [face] (get cindex (get fcolors face)))
         color-index (string/join " " (map color-format faces))
         normal-format (fn [face] (get nindex (get-normal face)))
@@ -100,11 +100,13 @@
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (seq meta)
                       [:head
+                       (for [unit units]
+                         [:unit unit])
                        (for [[k v] meta]
                          [:meta {:name (name k) :content (str v)}])])
                     [:Scene
                      [:Shape
-                      [:IndexedFaceSet {:solid "true"
+                      [:IndexedFaceSet {:solid "false"
                                         :ccw "true"
                                         :colorPerVertex "false"
                                         :convex "true"
@@ -114,7 +116,7 @@
                                         :colorIndex color-index
                                         :normalIndex normal-index}
                        [:Coordinate {:point point-list}]
-                       [:Color {:color color-list}]
+                       [:ColorRGBA {:color color-list}]
                        [:Normal {:vector normal-list}]
                        ]]]])
         doctype "<!DOCTYPE X3D PUBLIC \"ISO//Web3D//DTD X3D 3.3//EN\" \"http://www.web3d.org/specifications/x3d-3.3.dtd\">"
@@ -123,9 +125,9 @@
     out))
 
 (defn save-x3d
-  [path mesh & {:keys [indent? meta] :or {indent? false}}]
+  [path mesh & {:keys [indent? units meta] :or {indent? false}}]
   (with-open [out (io/writer path)]
-    (write-x3d out (g/tessellate mesh) indent? meta)))
+    (write-x3d out (g/tessellate mesh) indent? units meta)))
 
 (defn pob-save-x3d
   [path mesh & {:keys [indent?] :or {indent? false}}]
@@ -133,7 +135,12 @@
                :creator "Patrick K. O'Brien"
                :created "22 November 2015"
                :copyright "Copyright 2015 Patrick K. O'Brien"
-               :generator "Custom Clojure Code")]
+               :generator "Custom Clojure Code")
+        units [(array-map
+                 :category "length"
+                 :name "millimeters"
+                 :conversionFactor "0.001")]]
+    #_(save-x3d path mesh :indent? indent? :units units :meta meta)
     (save-x3d path mesh :indent? indent? :meta meta)))
 
 (defn x3d-test-mesh []
