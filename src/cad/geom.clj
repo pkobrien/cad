@@ -78,24 +78,24 @@
   (let [faces (g/faces mesh)
         vertices (vec (g/vertices mesh))
         vindex (zipmap vertices (range))
-        fcolors (into {} (for [face faces] [face [0.5 0.5 0.5]]))
-        colors (set (vals fcolors))
+        fcolors (into {} (for [face faces] [face [1 0 0]]))
+        colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
         fnormals (g/face-normals mesh true)
         get-normal (fn [face] (or (get fnormals face) (gu/ortho-normal face)))
-        normals (set (map get-normal faces))
+        normals (vec (set (map get-normal faces)))
         nindex (zipmap normals (range))
-        format-index (fn [f coll] (str (string/join " -1 " (mapcat f coll)) " -1"))
-        coord-format (fn [face] (mapv #(get vindex %) face))
-        coord-index (string/join " " (mapcat coord-format faces))
-        color-format (fn [face] [(get cindex (get fcolors face))])
-        color-index (format-index color-format faces)
-        normal-format (fn [face] [(get nindex (get-normal face))])
-        normal-index (format-index normal-format faces)
-        format-coll (fn [coll] (string/join " " (apply concat coll)))
-        point-list (format-coll vertices)
-        color-list (format-coll colors)
-        normal-list (format-coll normals)
+        index-format (fn [f coll] (str (string/join " -1 " (map f coll)) " -1"))
+        coord-format (fn [face] (string/join " " (mapv #(get vindex %) face)))
+        coord-index (index-format coord-format faces)
+        color-format (fn [face] (get cindex (get fcolors face)))
+        color-index (string/join " " (map color-format faces))
+        normal-format (fn [face] (get nindex (get-normal face)))
+        normal-index (string/join " " (map normal-format faces))
+        list-format (fn [coll] (string/join " " (apply concat coll)))
+        point-list (list-format vertices)
+        color-list (list-format colors)
+        normal-list (list-format normals)
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (seq meta)
@@ -131,7 +131,7 @@
   [path mesh & {:keys [indent?] :or {indent? false}}]
   (let [meta (array-map
                :creator "Patrick K. O'Brien"
-               :created "21 November 2015"
+               :created "22 November 2015"
                :copyright "Copyright 2015 Patrick K. O'Brien"
                :generator "Custom Clojure Code")]
     (save-x3d path mesh :indent? indent? :meta meta)))
