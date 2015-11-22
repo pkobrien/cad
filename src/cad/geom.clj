@@ -1,5 +1,6 @@
 (ns cad.geom
   (:require [clojure.java.io :as io]
+            [clojure.string :as string]
             [clojure.data.xml :as xml]
             [thi.ng.geom.aabb :as ab]
             [thi.ng.geom.basicmesh :as bm]
@@ -74,13 +75,27 @@
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
   [out mesh indent? meta]
-  (let [vertices (g/vertices mesh)
+  (let [faces (g/faces mesh)
+        vertices (vec (g/vertices mesh))
         vindex (zipmap vertices (range))
-        vnormals (g/vertex-normals mesh false)
-        vnorms? (not (nil? (seq vnormals)))
-        nindex (zipmap vnormals (range))
-        faces (g/faces mesh)
+        fcolors (into {} (for [face faces] [face [0.5 0.5 0.5]]))
+        colors (set (vals fcolors))
+        cindex (zipmap colors (range))
         fnormals (g/face-normals mesh true)
+        get-normal (fn [face] (or (get fnormals face) (gu/ortho-normal face)))
+        normals (set (map get-normal faces))
+        nindex (zipmap normals (range))
+        format-index (fn [f coll] (str (string/join " -1 " (mapcat f coll)) " -1"))
+        coord-format (fn [face] (mapv #(get vindex %) face))
+        coord-index (string/join " " (mapcat coord-format faces))
+        color-format (fn [face] [(get cindex (get fcolors face))])
+        color-index (format-index color-format faces)
+        normal-format (fn [face] [(get nindex (get-normal face))])
+        normal-index (format-index normal-format faces)
+        format-coll (fn [coll] (string/join " " (apply concat coll)))
+        point-list (format-coll vertices)
+        color-list (format-coll colors)
+        normal-list (format-coll normals)
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (seq meta)
@@ -89,9 +104,18 @@
                          [:meta {:name (name k) :content (str v)}])])
                     [:Scene
                      [:Shape
-                      [:IndexedFaceSet {:solid "true"}
-                       [:Coordinate {:point ""}]
-                       [:Normal {:vector ""}]
+                      [:IndexedFaceSet {:solid "true"
+                                        :ccw "true"
+                                        :colorPerVertex "false"
+                                        :convex "true"
+                                        :creaseAngle "0"
+                                        :normalPerVertex "false"
+                                        :coordIndex coord-index
+                                        :colorIndex color-index
+                                        :normalIndex normal-index}
+                       [:Coordinate {:point point-list}]
+                       [:Color {:color color-list}]
+                       [:Normal {:vector normal-list}]
                        ]]]])
         doctype "<!DOCTYPE X3D PUBLIC \"ISO//Web3D//DTD X3D 3.3//EN\" \"http://www.web3d.org/specifications/x3d-3.3.dtd\">"
         emit (if indent? xml-emit-indented xml-emit)]
@@ -108,7 +132,8 @@
   (let [meta (array-map
                :creator "Patrick K. O'Brien"
                :created "21 November 2015"
-               :copyright "Copyright 2015 Patrick K. O'Brien")]
+               :copyright "Copyright 2015 Patrick K. O'Brien"
+               :generator "Custom Clojure Code")]
     (save-x3d path mesh :indent? indent? :meta meta)))
 
 (defn x3d-test-mesh []
