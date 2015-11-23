@@ -27,21 +27,14 @@
             [thi.ng.geom.mesh.subdivision :as sd]
             [thi.ng.math.simplexnoise :as sn]
             [thi.ng.geom.voxel.svo :as svo]
-            [thi.ng.geom.types :as tp]
             [thi.ng.geom.triangle :as tr]
             [thi.ng.geom.types.utils :as tu]
+            [thi.ng.geom.types :as types]
             [thi.ng.geom.core.vector :as v :refer [vec2 vec3 V3Y V3Z]]))
 
 
 ; ==============================================================================
-; Shared constants and functions
-
-(defn save-stl
-  [path mesh]
-  (with-open [out (io/output-stream path)]
-    (mio/write-stl
-      (mio/wrapped-output-stream out)
-      (g/tessellate mesh))))
+; X3D Output
 
 (defn xml-emit
   "Prints the given Element tree as XML text to stream.
@@ -98,7 +91,7 @@
         normal-list (list-format normals)
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
-                    (when (seq meta)
+                    (when (or (seq units) (seq meta))
                       [:head
                        (for [unit units]
                          [:unit unit])
@@ -129,6 +122,17 @@
   (with-open [out (io/writer path)]
     (write-x3d out (g/tessellate mesh) indent? units meta)))
 
+
+; ==============================================================================
+; Shared constants and functions
+
+(defn save-stl
+  [path mesh]
+  (with-open [out (io/output-stream path)]
+    (mio/write-stl
+      (mio/wrapped-output-stream out)
+      (g/tessellate mesh))))
+
 (defn pob-save-x3d
   [path mesh & {:keys [indent?] :or {indent? false}}]
   (let [meta (array-map
@@ -143,20 +147,9 @@
     #_(save-x3d path mesh :indent? indent? :units units :meta meta)
     (save-x3d path mesh :indent? indent? :meta meta)))
 
-(defn x3d-test-mesh []
-  (-> (cu/cuboid -5 10) (g/as-mesh)))
-
-(time (pob-save-x3d "output/geom/x3d-test-mesh.x3d" (x3d-test-mesh)))
-(time (pob-save-x3d "output/geom/x3d-test-mesh-indented.x3d" (x3d-test-mesh) :indent? true))
-
-
-;(defn p-mesh
-;  [f scale]
-;  (g/into (gm/gmesh) (f scale)))
-
 (defn p-mesh
   [f scale]
-  (g/into (bm/basic-mesh) (f scale)))
+  (g/into (gm/gmesh) (f scale)))
 
 (defn mesh-union
   ([meshes]
@@ -187,48 +180,18 @@
 
 ;(time (save-stl "output/geom/platonic-solids.stl" (platonic-solids)))
 
-(defn tetrahedron-test-01 []
-  (let [mesh (ph/polyhedron-mesh ph/tetrahedron 10)]
+
+; ==============================================================================
+; Shell
+
+(defn shell [mesh _]
+  (let [mesh mesh]
     mesh))
 
-(defn tetrahedron-test-02 []
-  (let [t1 (-> ph/tetrahedron
-               (p-mesh 10)
-               (g/translate (vec3 0 0 0))
-               (csg/mesh->csg))
-        t2 (-> ph/tetrahedron
-               (p-mesh 10)
-               (g/translate (vec3 5 0 0))
-               ;(sd/catmull-clark)
-               (csg/mesh->csg))
-        ;t3 (-> ph/tetrahedron
-        ;       (p-mesh 10)
-        ;       (g/translate (vec3 10 0 0))
-        ;       (sd/catmull-clark)
-        ;       (csg/mesh->csg))
-        ;object (reduce csg/union [t1 t2 t3])
-        object (reduce csg/union [t1 t2])
-        mesh (csg/csg->mesh object)
-        ;mesh (csg/csg->mesh t2)
-        ;mesh t2
-        ]
+(defn shell-test-01 []
+  (let [seed (cu/cuboid -5 10)
+        mesh (g/into (gm/gmesh) seed)
+        mesh (-> mesh (shell 2))]
     mesh))
 
-;(time (save-stl "output/geom/tetrahedron-test-02.stl" (tetrahedron-test-02)))
-
-(comment
-  (time (save-stl "output/geom/platonic-solids.stl"
-                  (platonic-solids)))
-  (time (save-stl "output/geom/tetrahedron-test-01.stl"
-                  (tetrahedron-test-01)))
-  (time (save-stl "output/geom/tetrahedron-test-02.stl"
-                  (tetrahedron-test-02)))
-  (time (save-stl "output/geom/tetrahedron-test-smooth-01.stl"
-                  (ph/polyhedron-mesh ph/tetrahedron sd/catmull-clark 10 1)))
-  (time (save-stl "output/geom/tetrahedron-test-smooth-02.stl"
-                  (ph/polyhedron-mesh ph/tetrahedron sd/catmull-clark 10 2)))
-  (time (save-stl "output/geom/tetrahedron-test-smooth-03.stl"
-                  (ph/polyhedron-mesh ph/tetrahedron sd/catmull-clark 10 3)))
-  (time (save-stl "output/geom/tetrahedron-test-smooth-04.stl"
-                  (ph/polyhedron-mesh ph/tetrahedron sd/catmull-clark 10 4)))
-  )
+(time (pob-save-x3d "output/geom/shell-test-01.x3d" (shell-test-01)))
