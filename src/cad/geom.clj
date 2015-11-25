@@ -1,5 +1,6 @@
 (ns cad.geom
   (:require [clojure.java.io :as io]
+            [clojure.core.reducers :as r]
             [clojure.string :as string]
             [clojure.data.xml :as xml]
             [thi.ng.geom.aabb :as ab]
@@ -75,18 +76,17 @@
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
         fnormals (g/face-normals mesh true)
-        get-normal (fn [face] (or (get fnormals face) (gu/ortho-normal face)))
-        normals (vec (set (map get-normal faces)))
+        normals (vec (set (vals fnormals)))
         nindex (zipmap normals (range))
-        per-v-format (fn [f coll] (str (string/join " -1 " (map f coll)) " -1"))
-        coord-format (fn [face] (string/join " " (mapv #(get vindex %) face)))
-        coord-index (per-v-format coord-format faces)
-        color-format (fn [face] (get cindex (get fcolors face)))
-        color-index (string/join " " (map color-format faces))
-        normal-format (fn [face] (get nindex (get-normal face)))
-        normal-index (string/join " " (map normal-format faces))
+        per-v-fmt (fn [coll] (str (string/join " -1 " coll) " -1"))
+        viface-fmt (fn [face] (string/join " " (mapv #(get vindex %) face)))
+        vertex-index (per-v-fmt (map viface-fmt faces))
+        get-cindex (fn [face] (get cindex (get fcolors face)))
+        color-index (string/join " " (map get-cindex faces))
+        get-nindex (fn [face] (get nindex (get fnormals face)))
+        normal-index (string/join " " (map get-nindex faces))
         list-format (fn [coll] (string/join " " (apply concat coll)))
-        point-list (list-format vertices)
+        vertex-list (list-format vertices)
         color-list (list-format colors)
         normal-list (list-format normals)
         contents (xml/sexp-as-element
@@ -105,10 +105,10 @@
                                         :convex "true"
                                         :creaseAngle "0"
                                         :normalPerVertex "false"
-                                        :coordIndex coord-index
+                                        :coordIndex vertex-index
                                         :colorIndex color-index
                                         :normalIndex normal-index}
-                       [:Coordinate {:point point-list}]
+                       [:Coordinate {:point vertex-list}]
                        [:ColorRGBA {:color color-list}]
                        [:Normal {:vector normal-list}]
                        ]]]])
@@ -137,7 +137,7 @@
   [path mesh & {:keys [indent?] :or {indent? false}}]
   (let [meta (array-map
                :creator "Patrick K. O'Brien"
-               :created "22 November 2015"
+               :created "24 November 2015"
                :copyright "Copyright 2015 Patrick K. O'Brien"
                :generator "Custom Clojure Code")
         units [(array-map
@@ -179,19 +179,3 @@
     mesh))
 
 ;(time (save-stl "output/geom/platonic-solids.stl" (platonic-solids)))
-
-
-; ==============================================================================
-; Shell
-
-(defn shell [mesh _]
-  (let [mesh mesh]
-    mesh))
-
-(defn shell-test-01 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (g/into (gm/gmesh) seed)
-        mesh (-> mesh (shell 2))]
-    mesh))
-
-(time (pob-save-x3d "output/geom/shell-test-01.x3d" (shell-test-01)))
