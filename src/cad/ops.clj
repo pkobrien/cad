@@ -5,7 +5,8 @@
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
-            [thi.ng.geom.mesh.io :as mio]))
+            [thi.ng.geom.mesh.io :as mio]
+            [thi.ng.geom.core.vector :as v :refer [vec3]]))
 
 
 ; ==============================================================================
@@ -43,83 +44,99 @@
   [face]
   (->> face (first) (conj face) (cons (peek face)) (partition 3 1)))
 
-
-; ==============================================================================
-; Conway Operators
-
 (defn centroid-map
   "Returns a map of [vertices centroid] pairs for a collection of vertices."
   [coll]
   (let [xf (map (fn [verts] [verts (gu/centroid (seq verts))]))]
     (into {} xf coll)))
 
+(defn calc-vertex
+  "Returns a vertex at height distance from face-point along the normal."
+  [face face-point height]
+  (-> (take 3 face)
+      (gu/ortho-normal)
+      (g/* height)
+      (g/+ (vec3 face-point))))
+
 (defn quad-divide-face
   "Returns a vector of new faces."
-  [face fp e-points]
-  (let [xf (map (fn [[p c n]] [(e-points #{p c}) c (e-points #{c n}) fp]))]
+  [face new-vertex e-points]
+  (let [xf (map (fn [[p c n]]
+                  [(e-points #{p c}) c (e-points #{c n}) new-vertex]))]
     (into [] xf (face-loop-triples face))))
 
 (defn quad-divide-faces
   "Returns a vector of new faces."
-  [f-points e-points n-sides]
-  (let [xf (mapcat (fn [[f fp]]
-                     (if (or (nil? n-sides) (n-sides (count f)))
-                       (quad-divide-face f fp e-points)
-                       [f])))]
+  [f-points e-points height n-sides]
+  (let [xf (mapcat (fn [[face face-point]]
+                     (if (or (nil? n-sides) (n-sides (count face)))
+                       (let [new-vertex (calc-vertex face face-point height)]
+                         (quad-divide-face face new-vertex e-points))
+                       [face])))]
     (into [] xf f-points)))
 
 (defn tri-divide-face
   "Returns a vector of new faces."
-  [face fp]
-  (let [xf (map (fn [[p c n]] [c n fp]))]
+  [face new-vertex]
+  (let [xf (map (fn [[prev curr next]]
+                  [curr next new-vertex]))]
     (into [] xf (face-loop-triples face))))
 
 (defn tri-divide-faces
   "Returns a vector of new faces."
-  [f-points n-sides]
-  (let [xf (mapcat (fn [[f fp]]
-                     (if (or (nil? n-sides) (n-sides (count f)))
-                       (tri-divide-face f fp)
-                       [f])))]
+  [f-points height n-sides]
+  (let [xf (mapcat (fn [[face face-point]]
+                     (if (or (nil? n-sides) (n-sides (count face)))
+                       (let [new-vertex (calc-vertex face face-point height)]
+                         (tri-divide-face face new-vertex))
+                       [face])))]
     (into [] xf f-points)))
 
-(defn kis [{:keys [faces] :as mesh} & {:keys [height n-sides]}]
+
+; ==============================================================================
+; Conway Operators
+
+(defn expand [mesh]
+  ; Same as: Doo-Sabin subdivision
+  )
+
+(defn kis
   "Return new mesh with each n-sided face divided into n triangles."
+  [{:keys [faces] :as mesh} & {:keys [height n-sides]}]
   (let [f-points (centroid-map faces)]
-    (->> (tri-divide-faces f-points n-sides)
+    (->> (tri-divide-faces f-points height n-sides)
          (g/into (g/clear* mesh)))))
-
-(defn kis-test-01 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (seed->mesh seed)
-        mesh (-> mesh (kis :height 1))]
-    mesh))
-
-(time (save-x3d "output/geom/kis-test-01.x3d" (kis-test-01)))
 
 (defn ortho
   "Return new mesh with each n-sided face divided into n quadrilaterals."
   [{:keys [faces edges] :as mesh} & {:keys [height n-sides]}]
   (let [f-points (centroid-map faces)
         e-points (centroid-map (keys edges))]
-    (->> (quad-divide-faces f-points e-points n-sides)
+    (->> (quad-divide-faces f-points e-points height n-sides)
          (g/into (g/clear* mesh)))))
+
+
+; ==============================================================================
+; Conway Operator Tests
+
+(def foo (seed->mesh (cu/cuboid -5 10)))
+
+(defn kis-test-01 []
+  (let [seed (cu/cuboid -5 10)
+        mesh (seed->mesh seed)
+        mesh (-> mesh (kis :height 0))]
+    mesh))
+
+(time (save-x3d "output/geom/kis-test-01.x3d" (kis-test-01)))
 
 (defn ortho-test-01 []
   (let [seed (cu/cuboid -5 10)
         mesh (seed->mesh seed)
-        mesh (-> mesh (ortho :height 1))]
+        mesh (-> mesh (ortho :height -4))]
     mesh))
-
-(def foo (seed->mesh (cu/cuboid -5 10)))
 
 (time (save-x3d "output/geom/ortho-test-01.x3d" (ortho-test-01)))
 
-
-
-(defn expand [mesh]
-  ; Same as: Doo-Sabin subdivision
-  )
 
 ; ==============================================================================
 ; Other Operators: Shell/Hollow/Carve
