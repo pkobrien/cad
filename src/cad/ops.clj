@@ -8,6 +8,11 @@
 ; ==============================================================================
 ; Shared constants and functions
 
+(defn face-edges
+  "Returns a lazy seq of edges for a face."
+  [face]
+  (->> face (first) (conj face) (partition 2 1)))
+
 (defn face-loop-triples
   "Takes a mesh face (vector of points) and returns lazyseq of successive
   point triples: [prev curr next]"
@@ -62,37 +67,32 @@
                        [face])))]
     (into [] xf f-points)))
 
-(comment
-  "
-  split vertex (replace vertex with a face)
-  contract edge (replace edge with a vertex)
-  add diagonal (divide quadrangle into two triangles)
-
-  Dual
-  Truncate == split vertices
-  Ambo == split vertices, contract edges
-  Bevel == TA
-  Expand == AA
-  Snub == contract edges, add diagonals
-
-  Kis == dual of Truncate
-  Join == dual of Ambo
-  Meta == dual of Bevel
-  Ortho == dual of Expand
-  Gyro == dual of Snub
-  ")
+(defn vertex-edges
+  "Returns a vector of edges for a vertex."
+  [mesh vertex]
+  (let [dataset ((:vertices mesh) vertex)
+        xf (map (fn [datamap] [(:next datamap) (:prev datamap)]))
+        np-map (into {} xf dataset)
+        start (first (sort (keys np-map)))
+        verts (reduce (fn [acc _]
+                        (conj acc (np-map (last acc))))
+                      [start] (range (dec (count np-map))))
+        edges (map (fn [e-vert] [vertex e-vert]) verts)]
+    edges))
 
 
 ; ==============================================================================
 ; Conway Operators
 
-;(defn ambo
-;  "Returns mesh with new vertices added mid-edge and old vertices removed."
-;  [{:keys [faces edges] :as mesh}]
-;  (let [f-points (centroid-map faces)
-;        e-points (centroid-map (keys edges))]
-;    (->> (quad-divide-faces f-points e-points height n-sides)
-;         (g/into (g/clear* mesh)))))
+(defn ambo
+  "Returns mesh with new vertices added mid-edge and old vertices removed."
+  [{:keys [faces vertices] :as mesh}]
+  (let [f-faces (map (fn [face]
+                       (map gu/centroid (face-edges face))) faces)
+        v-faces (map (fn [vert]
+                       (map gu/centroid (vertex-edges mesh vert))) (keys vertices))]
+    (->> (concat f-faces v-faces)
+         (g/into (g/clear* mesh)))))
 
 ;(defn expand [mesh]
 ;  ; Same as: Doo-Sabin subdivision
@@ -127,7 +127,7 @@
 
 
 ; ==============================================================================
-; Other Operators: Shell/Hollow/Carve
+; Other Operators: Shell/Hollow/Carve/Skeletonize
 
 (defn colorize
   "Returns mesh with face colors, defaults to color based on face normal."
