@@ -1,42 +1,12 @@
 (ns cad.ops
-  (:require [cad.x3d :as x3d]
-            [clojure.java.io :as io]
-            [thi.ng.geom.cuboid :as cu]
-            [thi.ng.geom.core :as g]
+  (:require [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
-            [thi.ng.geom.mesh.io :as mio]
-            [thi.ng.geom.core.vector :as v :refer [vec3]]))
+            [thi.ng.geom.core.vector :refer [vec3]]))
 
 
 ; ==============================================================================
 ; Shared constants and functions
-
-(defn save-stl
-  [path mesh]
-  (with-open [out (io/output-stream path)]
-    (mio/write-stl
-      (mio/wrapped-output-stream out)
-      (g/tessellate mesh))))
-
-(defn save-x3d
-  [path mesh & {:keys [indent?] :or {indent? false}}]
-  (let [meta (array-map
-               :creator "Patrick K. O'Brien"
-               :created "24 November 2015"
-               :copyright "Copyright 2015 Patrick K. O'Brien"
-               :generator "Custom Clojure Code")
-        units [(array-map
-                 :category "length"
-                 :name "millimeters"
-                 :conversionFactor "0.001")]]
-    #_(x3d/save-x3d path mesh :indent? indent? :units units :meta meta)
-    (x3d/save-x3d path mesh :indent? indent? :meta meta)))
-
-(defn seed->mesh
-  "Returns a mesh for a seed collection of vertices."
-  [seed]
-  (g/into (gm/gmesh) seed))
 
 (defn face-loop-triples
   "Takes a mesh face (vector of points) and returns lazyseq of successive
@@ -92,67 +62,6 @@
                        [face])))]
     (into [] xf f-points)))
 
-
-; ==============================================================================
-; Conway Operators
-
-(defn expand [mesh]
-  ; Same as: Doo-Sabin subdivision
-  )
-
-(defn kis
-  "Return new mesh with each n-sided face divided into n triangles."
-  [{:keys [faces] :as mesh} & {:keys [height n-sides]}]
-  (let [f-points (centroid-map faces)]
-    (->> (tri-divide-faces f-points height n-sides)
-         (g/into (g/clear* mesh)))))
-
-(defn ortho
-  "Return new mesh with each n-sided face divided into n quadrilaterals."
-  [{:keys [faces edges] :as mesh} & {:keys [height n-sides]}]
-  (let [f-points (centroid-map faces)
-        e-points (centroid-map (keys edges))]
-    (->> (quad-divide-faces f-points e-points height n-sides)
-         (g/into (g/clear* mesh)))))
-
-
-; ==============================================================================
-; Conway Operator Tests
-
-(def foo (seed->mesh (cu/cuboid -5 10)))
-
-(defn kis-test-01 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (seed->mesh seed)
-        mesh (-> mesh (kis :height 0))]
-    mesh))
-
-(time (save-x3d "output/geom/kis-test-01.x3d" (kis-test-01)))
-
-(defn ortho-test-01 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (seed->mesh seed)
-        mesh (-> mesh (ortho :height -4))]
-    mesh))
-
-(time (save-x3d "output/geom/ortho-test-01.x3d" (ortho-test-01)))
-
-
-; ==============================================================================
-; Other Operators: Shell/Hollow/Carve
-
-(defn shell [mesh _]
-  (let [mesh mesh]
-    mesh))
-
-(defn shell-test-01 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (g/into (gm/gmesh) seed)
-        mesh (-> mesh (shell 2))]
-    mesh))
-
-;(time (save-x3d "output/geom/shell-test-01.x3d" (shell-test-01)))
-
 (comment
   "
   split vertex (replace vertex with a face)
@@ -175,7 +84,73 @@
 
 
 ; ==============================================================================
-; Subdivision Operators
+; Conway Operators
+
+;(defn ambo
+;  "Returns mesh with new vertices added mid-edge and old vertices removed."
+;  [{:keys [faces edges] :as mesh}]
+;  (let [f-points (centroid-map faces)
+;        e-points (centroid-map (keys edges))]
+;    (->> (quad-divide-faces f-points e-points height n-sides)
+;         (g/into (g/clear* mesh)))))
+
+;(defn expand [mesh]
+;  ; Same as: Doo-Sabin subdivision
+;  )
+
+(defn kis
+  "Returns mesh with each n-sided face divided into n triangles."
+  [{:keys [faces] :as mesh} & {:keys [height n-sides]
+                               :or {height 0 n-sides nil}}]
+  (let [f-points (centroid-map faces)]
+    (->> (tri-divide-faces f-points height n-sides)
+         (g/into (g/clear* mesh)))))
+
+(defn ortho
+  "Returns mesh with each n-sided face divided into n quadrilaterals."
+  [{:keys [faces edges] :as mesh} & {:keys [height n-sides]
+                                     :or {height 0 n-sides nil}}]
+  (let [f-points (centroid-map faces)
+        e-points (centroid-map (keys edges))]
+    (->> (quad-divide-faces f-points e-points height n-sides)
+         (g/into (g/clear* mesh)))))
+
+;(defn truncate
+;  "Returns mesh with new vertices added along edge and old vertices removed,
+;   i.e. each vertex is replaced with a face."
+;  [{:keys [faces edges] :as mesh} & {:keys [percent n-folds]
+;                                     :or {percent 10 n-folds nil}}]
+;  (let [f-points (centroid-map faces)
+;        e-points (centroid-map (keys edges))]
+;    (->> (quad-divide-faces f-points e-points percent n-folds)
+;         (g/into (g/clear* mesh)))))
+
+
+; ==============================================================================
+; Other Operators: Shell/Hollow/Carve
+
+(defn colorize
+  "Returns mesh with face colors, defaults to color based on face normal."
+  ([mesh]
+   (let [get-color (fn [mesh face]
+                     (let [[r g b] (mapv #(Math/abs %) (g/face-normal mesh face))
+                           alpha 1.0]
+                       [r g b alpha]))]
+     (colorize mesh get-color)))
+  ([mesh get-color]
+   (let [mesh (assoc mesh :fnormals (g/face-normals mesh true))
+         xf (map (fn [face] [face (get-color mesh face)]))
+         fcolors (->> mesh (g/faces) (into {} xf))
+         mesh (assoc mesh :fcolors fcolors)]
+     mesh)))
+
+;(defn shell [mesh _]
+;  (let [mesh mesh]
+;    mesh))
+
+
+; ==============================================================================
+; Catmull-Clark Subdivision Operator
 
 (defn cc-face-points
   "Returns a map of [face centroid-point] pairs."
@@ -225,3 +200,7 @@
     (->> (cc-subdiv-faces f-points e-points)
          (cc-replace-vertices mesh f-points)
          (g/into (g/clear* mesh)))))
+
+
+; ==============================================================================
+; Doo-Sabin Subdivision Operator

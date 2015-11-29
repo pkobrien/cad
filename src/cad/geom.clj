@@ -47,7 +47,8 @@
 
 (defn save-x3d
   [path mesh & {:keys [indent?] :or {indent? false}}]
-  (let [meta (array-map
+  (let [mesh (g/tessellate mesh)
+        meta (array-map
                :creator "Patrick K. O'Brien"
                :created "24 November 2015"
                :copyright "Copyright 2015 Patrick K. O'Brien"
@@ -56,8 +57,8 @@
                  :category "length"
                  :name "millimeters"
                  :conversionFactor "0.001")]]
-    #_(x3d/save-x3d path mesh :indent? indent? :units units :meta meta)
-    (x3d/save-x3d path mesh :indent? indent? :meta meta)))
+    (with-open [out (io/writer path)]
+      (x3d/write-x3d out mesh :indent? indent? :meta meta))))
 
 (defn p-mesh
   [f scale]

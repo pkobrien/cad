@@ -1,6 +1,5 @@
 (ns cad.x3d
-  (:require [clojure.java.io :as io]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [clojure.data.xml :as xml]
             [thi.ng.geom.core :as g]))
 
@@ -39,11 +38,11 @@
 
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
-  [out mesh indent? units meta]
+  [out mesh & {:keys [indent? units meta] :or {indent? false}}]
   (let [faces (g/faces mesh)
         vertices (vec (g/vertices mesh))
         vindex (zipmap vertices (range))
-        fcolors (into {} (for [face faces] [face [1 0 0 1]]))
+        fcolors (:fcolors mesh)
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
         fnormals (g/face-normals mesh true)
@@ -87,8 +86,3 @@
         emit (if indent? xml-emit-indented xml-emit)]
     (emit contents out :doctype doctype)
     out))
-
-(defn save-x3d
-  [path mesh & {:keys [indent? units meta] :or {indent? false}}]
-  (with-open [out (io/writer path)]
-    (write-x3d out (g/tessellate mesh) indent? units meta)))
