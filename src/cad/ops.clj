@@ -1,5 +1,6 @@
 (ns cad.ops
-  (:require [thi.ng.geom.core :as g]
+  (:require [clojure.set]
+            [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
             [thi.ng.geom.core.vector :refer [vec3]]))
@@ -18,6 +19,15 @@
   point triples: [prev curr next]"
   [face]
   (->> face (first) (conj face) (cons (peek face)) (partition 3 1)))
+
+(defn face-neighbors
+  "Returns a set of faces that neighbor the given face."
+  [mesh face]
+  (let [edge-map (:edges mesh)
+        faces (into #{} (mapcat (fn [edge]
+                                  (edge-map (set edge)))) (face-edges face))
+        faces (clojure.set/difference faces #{face})]
+    faces))
 
 (defn centroid-map
   "Returns a map of [vertices centroid] pairs for a collection of vertices."
@@ -77,8 +87,28 @@
         verts (reduce (fn [acc _]
                         (conj acc (np-map (last acc))))
                       [start] (range (dec (count np-map))))
-        edges (map (fn [e-vert] [vertex e-vert]) verts)]
+        edges (mapv (fn [e-vert] [vertex e-vert]) verts)]
     edges))
+
+(defn vertex-faces
+  "Returns a vector of faces for a vertex."
+  [mesh vertex]
+  (let [np-map (get-in mesh [:vnp-map vertex])
+        start (first (sort (keys np-map)))
+        verts (reduce (fn [acc _]
+                        (conj acc (get-in np-map [(last acc) :prev])))
+                      [start] (range (dec (count np-map))))
+        faces (mapv (fn [vert] (get-in np-map [vert :face])) verts)]
+    faces))
+
+(defn calc-vnp-map
+  [{:keys [vertices] :as mesh}]
+  (let [np-f (fn [datamap] [(:next datamap) {:prev (:prev datamap)
+                                             :face (:f datamap)}])
+        vnp-map (into {} (for [vertex (keys vertices)]
+                           [vertex (into {} (map np-f (vertices vertex)))]))
+        mesh (assoc mesh :vnp-map vnp-map)]
+    mesh))
 
 
 ; ==============================================================================
@@ -94,9 +124,36 @@
     (->> (concat f-faces v-faces)
          (g/into (g/clear* mesh)))))
 
-;(defn expand [mesh]
+;(defn expand
+;  [mesh thickness]
 ;  ; Same as: Doo-Sabin subdivision
 ;  )
+
+(defn contract
+  [{:keys [faces edges vertices] :as mesh}]
+  (let [mesh (calc-vnp-map mesh)
+        offset (fn [face vert] (g/mix vert (gu/centroid face) 0.75))
+        fv-map (into {} (for [face faces]
+                          [face (into {} (for [vert face]
+                                           [vert (offset face vert)]))]))
+        e-faces (for [edge (keys edges)]
+                  (let [[v1 v2] (sort (vec edge))
+                        f1 (get-in mesh [:vnp-map v1 v2 :face])
+                        f2 (first (for [face (edges edge)
+                                        :when (not= face f1)] face))
+                        va (get-in fv-map [f1 v2])
+                        vb (get-in fv-map [f1 v1])
+                        vc (get-in fv-map [f2 v1])
+                        vd (get-in fv-map [f2 v2])]
+                    [va vb vc vd]))
+        f-faces (for [face faces]
+                  (for [vert face]
+                    (get-in fv-map [face vert])))
+        v-faces (for [vert (keys vertices)]
+                  (for [face (vertex-faces mesh vert)]
+                    (get-in fv-map [face vert])))]
+    (->> (concat e-faces f-faces v-faces)
+         (g/into (g/clear* mesh)))))
 
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
@@ -138,7 +195,7 @@
                        [r g b alpha]))]
      (colorize mesh get-color)))
   ([mesh get-color]
-   (let [mesh (assoc mesh :fnormals (g/face-normals mesh true))
+   (let [mesh (g/compute-face-normals mesh)
          xf (map (fn [face] [face (get-color mesh face)]))
          fcolors (->> mesh (g/faces) (into {} xf))
          mesh (assoc mesh :fcolors fcolors)]
