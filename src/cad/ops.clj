@@ -2,12 +2,35 @@
   (:require [clojure.set]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
-            [thi.ng.geom.core.utils :as gu]
-            [thi.ng.geom.core.vector :refer [vec3]]))
+            [thi.ng.geom.core.utils :as gu]))
 
 
 ; ==============================================================================
 ; Shared constants and functions
+
+(defn calc-vertex
+  "Returns a vertex at height distance from face-point along the normal."
+  [face & {:keys [point height] :or {height 0}}]
+  (let [point (or point (gu/centroid face))]
+    (-> (take 3 face)
+        (gu/ortho-normal)
+        (g/* height)
+        (g/+ point))))
+
+(defn calc-vnp-map
+  [{:keys [vertices] :as mesh}]
+  (let [np-f (fn [datamap] [(:next datamap) {:prev (:prev datamap)
+                                             :face (:f datamap)}])
+        vnp-map (into {} (for [vertex (keys vertices)]
+                           [vertex (into {} (map np-f (vertices vertex)))]))
+        mesh (assoc mesh :vnp-map vnp-map)]
+    mesh))
+
+(defn centroid-map
+  "Returns a map of [vertices centroid] pairs for a collection of vertices."
+  [coll]
+  (let [xf (map (fn [verts] [verts (gu/centroid (seq verts))]))]
+    (into {} xf coll)))
 
 (defn face-edges
   "Returns a lazy seq of edges for a face."
@@ -29,20 +52,6 @@
         faces (clojure.set/difference faces #{face})]
     faces))
 
-(defn centroid-map
-  "Returns a map of [vertices centroid] pairs for a collection of vertices."
-  [coll]
-  (let [xf (map (fn [verts] [verts (gu/centroid (seq verts))]))]
-    (into {} xf coll)))
-
-(defn calc-vertex
-  "Returns a vertex at height distance from face-point along the normal."
-  [face face-point height]
-  (-> (take 3 face)
-      (gu/ortho-normal)
-      (g/* height)
-      (g/+ (vec3 face-point))))
-
 (defn quad-divide-face
   "Returns a vector of new faces."
   [face new-vertex e-points]
@@ -53,27 +62,10 @@
 (defn quad-divide-faces
   "Returns a vector of new faces."
   [f-points e-points height n-sides]
-  (let [xf (mapcat (fn [[face face-point]]
+  (let [xf (mapcat (fn [[face point]]
                      (if (or (nil? n-sides) (n-sides (count face)))
-                       (let [new-vertex (calc-vertex face face-point height)]
+                       (let [new-vertex (calc-vertex face :point point :height height)]
                          (quad-divide-face face new-vertex e-points))
-                       [face])))]
-    (into [] xf f-points)))
-
-(defn tri-divide-face
-  "Returns a vector of new faces."
-  [face new-vertex]
-  (let [xf (map (fn [[prev curr next]]
-                  [curr next new-vertex]))]
-    (into [] xf (face-loop-triples face))))
-
-(defn tri-divide-faces
-  "Returns a vector of new faces."
-  [f-points height n-sides]
-  (let [xf (mapcat (fn [[face face-point]]
-                     (if (or (nil? n-sides) (n-sides (count face)))
-                       (let [new-vertex (calc-vertex face face-point height)]
-                         (tri-divide-face face new-vertex))
                        [face])))]
     (into [] xf f-points)))
 
@@ -101,15 +93,6 @@
         faces (mapv (fn [vert] (get-in np-map [vert :face])) verts)]
     faces))
 
-(defn calc-vnp-map
-  [{:keys [vertices] :as mesh}]
-  (let [np-f (fn [datamap] [(:next datamap) {:prev (:prev datamap)
-                                             :face (:f datamap)}])
-        vnp-map (into {} (for [vertex (keys vertices)]
-                           [vertex (into {} (map np-f (vertices vertex)))]))
-        mesh (assoc mesh :vnp-map vnp-map)]
-    mesh))
-
 
 ; ==============================================================================
 ; Conway Operators
@@ -131,10 +114,12 @@
 
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
-  [{:keys [faces] :as mesh} & {:keys [height n-sides]
-                               :or {height 0 n-sides nil}}]
-  (let [f-points (centroid-map faces)]
-    (->> (tri-divide-faces f-points height n-sides)
+  [{:keys [faces] :as mesh} & {:keys [get-vertex]}]
+  (let [get-vertex (or get-vertex (fn [mesh face] (calc-vertex face)))
+        subdivide (fn [face] (if-let [vertex (get-vertex mesh face)]
+                               (mapv #(conj % vertex) (face-edges face))
+                               [face]))]
+    (->> (mapcat subdivide faces)
          (g/into (g/clear* mesh)))))
 
 (defn ortho
@@ -207,9 +192,11 @@
     (->> (concat e-faces f-faces v-faces)
          (g/into (g/clear* mesh)))))
 
-;(defn shell [mesh _]
-;  (let [mesh mesh]
-;    mesh))
+(defn skeletonize
+  "Return mesh with all the flesh removed."
+  [{:keys [faces edges vertices] :as mesh} & {:keys [f-factor v-factor]
+                                              :or {f-factor 0.5 v-factor 0.25}}]
+  mesh)
 
 
 ; ==============================================================================
