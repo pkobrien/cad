@@ -129,32 +129,6 @@
 ;  ; Same as: Doo-Sabin subdivision
 ;  )
 
-(defn contract
-  [{:keys [faces edges vertices] :as mesh}]
-  (let [mesh (calc-vnp-map mesh)
-        offset (fn [face vert] (g/mix vert (gu/centroid face) 0.75))
-        fv-map (into {} (for [face faces]
-                          [face (into {} (for [vert face]
-                                           [vert (offset face vert)]))]))
-        e-faces (for [edge (keys edges)]
-                  (let [[v1 v2] (sort (vec edge))
-                        f1 (get-in mesh [:vnp-map v1 v2 :face])
-                        f2 (first (for [face (edges edge)
-                                        :when (not= face f1)] face))
-                        va (get-in fv-map [f1 v2])
-                        vb (get-in fv-map [f1 v1])
-                        vc (get-in fv-map [f2 v1])
-                        vd (get-in fv-map [f2 v2])]
-                    [va vb vc vd]))
-        f-faces (for [face faces]
-                  (for [vert face]
-                    (get-in fv-map [face vert])))
-        v-faces (for [vert (keys vertices)]
-                  (for [face (vertex-faces mesh vert)]
-                    (get-in fv-map [face vert])))]
-    (->> (concat e-faces f-faces v-faces)
-         (g/into (g/clear* mesh)))))
-
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
   [{:keys [faces] :as mesh} & {:keys [height n-sides]
@@ -200,6 +174,38 @@
          fcolors (->> mesh (g/faces) (into {} xf))
          mesh (assoc mesh :fcolors fcolors)]
      mesh)))
+
+(defn complexify
+  "Symetrical edge smoothing while maintaining bounding box dimensions."
+  [{:keys [faces edges vertices] :as mesh} & {:keys [f-factor v-factor]
+                                              :or {f-factor 0.5 v-factor 0.25}}]
+  (let [mesh (calc-vnp-map mesh)
+        fv-offset (fn [face vert] (g/mix vert (gu/centroid face) f-factor))
+        fv-map (into {} (for [face faces]
+                          [face (into {} (for [vert face]
+                                           [vert (fv-offset face vert)]))]))
+        e-faces (for [edge (keys edges)]
+                  (let [[v1 v2] (sort (vec edge))
+                        f1 (get-in mesh [:vnp-map v1 v2 :face])
+                        f2 (first (for [face (edges edge)
+                                        :when (not= face f1)] face))
+                        va (get-in fv-map [f1 v2])
+                        vb (get-in fv-map [f1 v1])
+                        vc (get-in fv-map [f2 v1])
+                        vd (get-in fv-map [f2 v2])]
+                    [va vb vc vd]))
+        f-faces (for [face faces]
+                  (for [vert face]
+                    (get-in fv-map [face vert])))
+        v-faces (mapcat vec (for [vert (keys vertices)]
+                              (let [vf-verts (mapv #(get-in fv-map [% vert])
+                                                   (vertex-faces mesh vert))
+                                    vf-centroid (gu/centroid vf-verts)
+                                    vf-vert (g/mix vf-centroid vert v-factor)
+                                    vf-edges (partition 2 1 (conj vf-verts (first vf-verts)))]
+                                (mapv #(conj % vf-vert) vf-edges))))]
+    (->> (concat e-faces f-faces v-faces)
+         (g/into (g/clear* mesh)))))
 
 ;(defn shell [mesh _]
 ;  (let [mesh mesh]
