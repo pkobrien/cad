@@ -46,12 +46,12 @@
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
         fnormals (g/face-normals mesh true)
-        normals (vec (set (vals fnormals)))
         ; Clojure has a bug involving equality of 0.0 and -0.0
         ; http://dev.clojure.org/jira/browse/CLJ-1860
         ; So we get around this by indexing the string value of the normals.
-        ;nindex (zipmap normals (range))
-        nindex (zipmap (map str normals) (range))
+        ;normals (vec (set (vals fnormals)))
+        normals (vec (set (map str (vals fnormals))))
+        nindex (zipmap normals (range))
         per-v-fmt (fn [coll] (str (string/join " -1 " coll) " -1"))
         viface-fmt (fn [face] (string/join " " (mapv #(get vindex %) face)))
         vertex-index (per-v-fmt (map viface-fmt faces))
@@ -63,7 +63,8 @@
         list-format (fn [coll] (string/join " " (apply concat coll)))
         vertex-list (list-format vertices)
         color-list (list-format colors)
-        normal-list (list-format normals)
+        ;normal-list (list-format normals)
+        normal-list (string/join " " (map #(subs % 1 (dec (count %))) normals))
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (or (seq units) (seq meta))
