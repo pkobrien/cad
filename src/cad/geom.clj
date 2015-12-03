@@ -3,6 +3,8 @@
             [clojure.java.io :as io]
             [clojure.core.reducers :as r]
             [clojure.string :as string]
+            [clj-time.format :as tf]
+            [clj-time.core :as time]
             [clojure.data.xml :as xml]
             [thi.ng.geom.aabb :as ab]
             [thi.ng.geom.basicmesh :as bm]
@@ -47,11 +49,14 @@
 
 (defn save-x3d
   [path mesh & {:keys [indent?] :or {indent? false}}]
-  (let [mesh (g/tessellate mesh)
+  (let [now (time/now)
+        date (tf/unparse (tf/formatters :rfc822) now)
+        year (tf/unparse (tf/formatters :year) now)
+        copy (str "Copyright " year " Patrick K. O'Brien")
         meta (array-map
                :creator "Patrick K. O'Brien"
-               :created "24 November 2015"
-               :copyright "Copyright 2015 Patrick K. O'Brien"
+               :created date
+               :copyright copy
                :generator "Custom Clojure Code")
         units [(array-map
                  :category "length"
