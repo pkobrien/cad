@@ -114,7 +114,7 @@
 
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
-  [{:keys [faces] :as mesh} & {:keys [get-vertex]}]
+  [{:keys [faces] :as mesh} & [get-vertex]]
   (let [get-vertex (or get-vertex (fn [mesh face] (calc-vertex face)))
         subdivide (fn [face] (if-let [vertex (get-vertex mesh face)]
                                (mapv #(conj % vertex) (face-edges face))
