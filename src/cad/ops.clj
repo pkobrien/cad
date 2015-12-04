@@ -8,6 +8,9 @@
 ; ==============================================================================
 ; Shared constants and functions
 
+;(defn into-map [f coll]
+;  (into {} (for [item coll] [item (f item)])))
+
 (defn calc-vertex
   "Returns a vertex at height distance from face-point along the normal."
   [face & {:keys [point height] :or {height 0}}]
@@ -19,18 +22,11 @@
 
 (defn calc-vnp-map
   [{:keys [vertices] :as mesh}]
-  (let [np-f (fn [datamap] [(:next datamap) {:prev (:prev datamap)
-                                             :face (:f datamap)}])
+  (let [np-f (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
         vnp-map (into {} (for [vertex (keys vertices)]
                            [vertex (into {} (map np-f (vertices vertex)))]))
         mesh (assoc mesh :vnp-map vnp-map)]
     mesh))
-
-(defn centroid-map
-  "Returns a map of [vertices centroid] pairs for a collection of vertices."
-  [coll]
-  (let [xf (map (fn [verts] [verts (gu/centroid (seq verts))]))]
-    (into {} xf coll)))
 
 (defn face-edges
   "Returns a lazy seq of edges for a face."
@@ -52,29 +48,11 @@
         faces (clojure.set/difference faces #{face})]
     faces))
 
-(defn quad-divide-face
-  "Returns a vector of new faces."
-  [face new-vertex e-points]
-  (let [xf (map (fn [[p c n]]
-                  [(e-points #{p c}) c (e-points #{c n}) new-vertex]))]
-    (into [] xf (face-loop-triples face))))
-
-(defn quad-divide-faces
-  "Returns a vector of new faces."
-  [f-points e-points height n-sides]
-  (let [xf (mapcat (fn [[face point]]
-                     (if (or (nil? n-sides) (n-sides (count face)))
-                       (let [new-vertex (calc-vertex face :point point :height height)]
-                         (quad-divide-face face new-vertex e-points))
-                       [face])))]
-    (into [] xf f-points)))
-
 (defn vertex-edges
-  "Returns a vector of edges for a vertex."
-  [mesh vertex]
-  (let [dataset ((:vertices mesh) vertex)
-        xf (map (fn [datamap] [(:next datamap) (:prev datamap)]))
-        np-map (into {} xf dataset)
+  "Returns a vector of edges for a vertex in ccw order."
+  [{:keys [vertices]} vertex]
+  (let [np-map (into {} (map (fn [{:keys [next prev]}]
+                               [next prev]) (vertices vertex)))
         start (first (sort (keys np-map)))
         verts (reduce (fn [acc _]
                         (conj acc (np-map (last acc))))
@@ -83,7 +61,7 @@
     edges))
 
 (defn vertex-faces
-  "Returns a vector of faces for a vertex."
+  "Returns a vector of faces for a vertex in ccw order."
   [mesh vertex]
   (let [np-map (get-in mesh [:vnp-map vertex])
         start (first (sort (keys np-map)))
@@ -100,10 +78,11 @@
 (defn ambo
   "Returns mesh with new vertices added mid-edge and old vertices removed."
   [{:keys [faces vertices] :as mesh}]
-  (let [f-faces (map (fn [face]
+  (let [verts (keys vertices)
+        f-faces (map (fn [face]
                        (map gu/centroid (face-edges face))) faces)
         v-faces (map (fn [vert]
-                       (map gu/centroid (vertex-edges mesh vert))) (keys vertices))]
+                       (map gu/centroid (vertex-edges mesh vert))) verts)]
     (->> (concat f-faces v-faces)
          (g/into (g/clear* mesh)))))
 
@@ -114,32 +93,44 @@
 
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
-  [{:keys [faces] :as mesh} & [get-vertex]]
-  (let [get-vertex (or get-vertex (fn [mesh face] (calc-vertex face)))
-        subdivide (fn [face] (if-let [vertex (get-vertex mesh face)]
-                               (mapv #(conj % vertex) (face-edges face))
-                               [face]))]
-    (->> (mapcat subdivide faces)
-         (g/into (g/clear* mesh)))))
+  ([mesh]
+   (let [get-vertex (fn [mesh face] (calc-vertex face))]
+     (kis mesh get-vertex)))
+  ([{:keys [faces] :as mesh} get-vertex]
+   (let [new-face (fn [[p c n] new-vertex]
+                    [c n new-vertex])
+         new-faces (fn [face new-vertex]
+                     (mapv #(new-face % new-vertex) (face-loop-triples face)))
+         subdivide (fn [face]
+                     (if-let [new-vertex (get-vertex mesh face)]
+                       (new-faces face new-vertex)
+                       [face]))]
+     (->> (mapcat subdivide faces)
+          (g/into (g/clear* mesh))))))
 
 (defn ortho
   "Returns mesh with each n-sided face divided into n quadrilaterals."
-  [{:keys [faces edges] :as mesh} & {:keys [height n-sides]
-                                     :or {height 0 n-sides nil}}]
-  (let [f-points (centroid-map faces)
-        e-points (centroid-map (keys edges))]
-    (->> (quad-divide-faces f-points e-points height n-sides)
-         (g/into (g/clear* mesh)))))
+  ([mesh]
+   (let [get-vertex (fn [mesh face] (calc-vertex face))]
+     (ortho mesh get-vertex)))
+  ([{:keys [faces] :as mesh} get-vertex]
+   (let [new-face (fn [[p c n] new-vertex]
+                    [(gu/centroid [p c]) c (gu/centroid [c n]) new-vertex])
+         new-faces (fn [face new-vertex]
+                     (mapv #(new-face % new-vertex) (face-loop-triples face)))
+         subdivide (fn [face]
+                     (if-let [new-vertex (get-vertex mesh face)]
+                       (new-faces face new-vertex)
+                       [face]))]
+     (->> (mapcat subdivide faces)
+          (g/into (g/clear* mesh))))))
 
 ;(defn truncate
 ;  "Returns mesh with new vertices added along edge and old vertices removed,
 ;   i.e. each vertex is replaced with a face."
 ;  [{:keys [faces edges] :as mesh} & {:keys [percent n-folds]
 ;                                     :or {percent 10 n-folds nil}}]
-;  (let [f-points (centroid-map faces)
-;        e-points (centroid-map (keys edges))]
-;    (->> (quad-divide-faces f-points e-points percent n-folds)
-;         (g/into (g/clear* mesh)))))
+;  )
 
 
 ; ==============================================================================
@@ -153,10 +144,9 @@
                            alpha 1.0]
                        [r g b alpha]))]
      (colorize mesh get-color)))
-  ([mesh get-color]
+  ([{:keys [faces] :as mesh} get-color]
    (let [mesh (g/compute-face-normals mesh)
-         xf (map (fn [face] [face (get-color mesh face)]))
-         fcolors (->> mesh (g/faces) (into {} xf))
+         fcolors (into {} (for [face faces] [face (get-color mesh face)]))
          mesh (assoc mesh :fcolors fcolors)]
      mesh)))
 
