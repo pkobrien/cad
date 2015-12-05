@@ -192,83 +192,46 @@
 ; ==============================================================================
 ; Catmull-Clark Subdivision Operator
 
-(defn cc-edge-points
-  "Returns a map of [edge new-edge-point] pairs."
-  [edges f-points]
-  (let [get-edge-point (fn [[e e-faces]]
-                         [e (-> (mapv f-points e-faces)
-                                (conj (first e))
-                                (conj (second e))
-                                (gu/centroid))])]
-    (into {} (map get-edge-point edges))))
-
-(defn cc-replace-vertices
-  "Returns a vector of new faces."
-  [{:keys [vertices] :as mesh} new-faces]
-  (let [old-verts (keys vertices)
-        vf (fn [v]
-             (let [f (gu/centroid (mapv gu/centroid (gm/vertex-faces* mesh v)))
-                   vn (gm/vertex-neighbors* mesh v)
-                   n (count vn)
-                   r (gu/centroid (mapv #(g/mix v %) vn))]
-               [v (g/addm (g/madd r 2.0 f) (g/* v (- n 3)) (/ 1.0 n))]))
-        vert-map (into {} (map vf old-verts))]
-    (map (fn [face] (replace vert-map face)) new-faces)))
-
 (defn catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
-  ([mesh]
-   (let [get-face-point (fn [mesh face] (calc-vertex face))]
-     (catmull-clark mesh get-face-point)))
-  ([{:keys [faces edges] :as mesh} get-face-point]
-   (let [new-face (fn [[p c n] f-point e-points]
-                    [(e-points #{p c}) c (e-points #{c n}) f-point])
-         new-faces (fn [face f-point e-points]
-                     (mapv #(new-face % f-point e-points) (face-loop-triples face)))
-         subdivide (fn [[face f-point] e-points]
-                     (new-faces face f-point e-points))
-         f-points (into {} (map (fn [face]
-                                  [face (get-face-point mesh face)]) faces))
-         e-points (cc-edge-points edges f-points)]
-     (->> (mapcat #(subdivide % e-points) f-points)
-          (cc-replace-vertices mesh)
-          (g/into (g/clear* mesh))))))
+  [{:keys [faces edges vertices] :as mesh} & {:keys [get-f-point get-e-point get-v-point]}]
+  (let [get-fp (fn [mesh face]
+                 (calc-vertex face))
+        get-ep (fn [edge e-faces f-points]
+                 (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
+        get-vp (fn [mesh vertex]
+                 (let [f (gu/centroid (mapv gu/centroid
+                                            (gm/vertex-faces* mesh vertex)))
+                       vn (gm/vertex-neighbors* mesh vertex)
+                       n (count vn)
+                       r (gu/centroid (mapv #(g/mix vertex %) vn))]
+                   (g/addm (g/madd r 2.0 f) (g/* vertex (- n 3)) (/ 1.0 n))))
+        get-f-point (or get-f-point get-fp)
+        get-e-point (or get-e-point get-ep)
+        get-v-point (or get-v-point get-vp)
+        new-face (fn [[p c n] f-point e-points]
+                   [(e-points #{p c}) c (e-points #{c n}) f-point])
+        new-faces (fn [face f-point e-points]
+                    (mapv #(new-face % f-point e-points) (face-loop-triples face)))
+        subdivide (fn [[face f-point] e-points]
+                    (new-faces face f-point e-points))
+        v-replace (fn [face vert-map] (replace vert-map face))
+        f-points (into {} (map (fn [face]
+                                 [face (get-f-point mesh face)]) faces))
+        e-points (into {} (map (fn [[edge e-faces]]
+                                 [edge (get-e-point edge e-faces f-points)]) edges))
+        v-points (into {} (map (fn [vertex]
+                                 [vertex (get-v-point mesh vertex)]) (keys vertices)))]
+    (->> (mapcat #(subdivide % e-points) f-points)
+         (map #(v-replace % v-points))
+         (g/into (g/clear* mesh)))))
 
 
 ; ==============================================================================
 ; Not Quite Catmull-Clark Subdivision Operator
 
-(defn nqcc-replace-vertices
-  "Returns a vector of new faces."
-  [{:keys [vertices] :as mesh} new-faces]
-  (let [old-verts (keys vertices)
-        vf (fn [v]
-             (let [f (gu/centroid (mapv gu/centroid (gm/vertex-faces* mesh v)))
-                   vn (gm/vertex-neighbors* mesh v)
-                   n (count vn)
-                   r (gu/centroid (mapv #(g/mix v %) vn))]
-               [v (g/addm (g/madd r 2.0 f) (g/* v (- n 3)) (/ 1.0 n))]))
-        vert-map (into {} (map vf old-verts))]
-    (map (fn [face] (replace vert-map face)) new-faces)))
-
 (defn not-quite-catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
-  ([mesh]
-   (let [get-face-point (fn [mesh face] (calc-vertex face))]
-     (not-quite-catmull-clark mesh get-face-point)))
-  ([{:keys [faces] :as mesh} get-face-point]
-   (let [new-face (fn [[p c n] f-point]
-                    [(gu/centroid [p c]) c (gu/centroid [c n]) f-point])
-         new-faces (fn [face f-point]
-                     (mapv #(new-face % f-point) (face-loop-triples face)))
-         subdivide (fn [face]
-                     (if-let [f-point (get-face-point mesh face)]
-                       (new-faces face f-point)
-                       [face]))]
-     (->> (mapcat subdivide faces)
-          (nqcc-replace-vertices mesh)
-          (g/into (g/clear* mesh))))))
-
-
-; ==============================================================================
-; Doo-Sabin Subdivision Operator
+  [mesh]
+  (let [get-e-point (fn [edge _ _] (gu/centroid (vec edge)))]
+    (catmull-clark mesh :get-e-point get-e-point)))
