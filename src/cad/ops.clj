@@ -155,10 +155,10 @@
   [{:keys [faces edges vertices] :as mesh} & {:keys [f-factor v-factor]
                                               :or {f-factor 0.5 v-factor 0.25}}]
   (let [mesh (calc-vnp-map mesh)
-        fv-offset (fn [face vert] (g/mix vert (gu/centroid face) f-factor))
+        offset (fn [vert face] (g/mix vert (gu/centroid face) f-factor))
         fv-map (into {} (for [face faces]
                           [face (into {} (for [vert face]
-                                           [vert (fv-offset face vert)]))]))
+                                           [vert (offset vert face)]))]))
         e-faces (for [edge (keys edges)]
                   (let [[v1 v2] (sort (vec edge))
                         f1 (get-in mesh [:vnp-map v1 v2 :face])
@@ -184,9 +184,38 @@
 
 (defn skeletonize
   "Return mesh with all the flesh removed."
-  [{:keys [faces edges vertices] :as mesh} & {:keys [f-factor v-factor]
-                                              :or {f-factor 0.5 v-factor 0.25}}]
-  mesh)
+  [{:keys [faces edges vertices] :as mesh} & {:keys [thickness get-f-factor]
+                                              :or {thickness 1}}]
+  (let [get-f-fact (fn [mesh face] 0.25)
+        get-f-factor (or get-f-factor get-f-fact)
+        vnormals (:vnormals (g/compute-vertex-normals (kis mesh)))
+        mesh (assoc mesh :vnormals vnormals)
+        offset (fn [vert face f-factor] (g/mix vert (gu/centroid face) f-factor))
+        full-inner-face (fn [outer-face thickness]
+                          (vec (for [vertex (reverse outer-face)]
+                                 (g/- vertex (g/* (vnormals vertex) thickness)))))
+        new-face (fn [[c n] face f-factor]
+                   [c n (offset n face f-factor) (offset c face f-factor)])
+        new-faces (fn [face f-factor]
+                    (mapv #(new-face % face f-factor) (face-edges face)))
+        mid-face (fn [[outer-c outer-n] outer-f [inner-c inner-n] inner-f f-factor]
+                   [(offset outer-c outer-f f-factor)
+                    (offset outer-n outer-f f-factor)
+                    (offset inner-n inner-f f-factor)
+                    (offset inner-c inner-f f-factor)])
+        mid-faces (fn [outer-f inner-f f-factor]
+                    (mapv (fn [outer-edge inner-edge]
+                            (mid-face outer-edge outer-f inner-edge inner-f f-factor))
+                          (face-edges outer-f) (face-edges inner-f)))
+        subdivide (fn [outer-face]
+                    (let [inner-face (full-inner-face outer-face thickness)]
+                      (if-let [f-factor (get-f-factor mesh outer-face)]
+                        (concat (new-faces outer-face f-factor)
+                                (new-faces inner-face f-factor)
+                                (mid-faces outer-face (vec (reverse inner-face)) f-factor))
+                        [outer-face inner-face])))]
+    (->> (mapcat subdivide faces)
+         (g/into (g/clear* mesh)))))
 
 
 ; ==============================================================================
