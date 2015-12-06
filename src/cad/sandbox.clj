@@ -9,7 +9,8 @@
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
-            [thi.ng.geom.mesh.polyhedra :as ph]))
+            [thi.ng.geom.mesh.polyhedra :as ph]
+            [thi.ng.geom.mesh.subdivision :as sd]))
 
 
 ; ==============================================================================
@@ -170,6 +171,8 @@
         mesh (op/colorize mesh)]
     mesh))
 
+;(time (save-x3d "output/sandbox/complexify-test-01.x3d" (complexify-test-01)))
+
 (defn complexify-test-02 []
   (let [seed (ph/dodecahedron 10)
         mesh (seed->mesh seed)
@@ -260,11 +263,11 @@
 (defn ortho-test-01 []
   (let [seed (ph/dodecahedron 10)
         mesh (seed->mesh seed)
-        mesh (-> mesh (op/ortho :height 7))
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/ortho :height -0.5))
-        ;mesh (-> mesh (op/ortho :height 2 :n-sides #{3 5}))
-        mesh (-> mesh (op/ortho :height 2))
+        mesh (-> mesh (op/ortho #(op/calc-vertex %2 :height 0)))
+        get-vertex (fn [mesh face]
+                     (if-let [height ({3 -0.2, 4 +2, 5 -7} (count face))]
+                       (op/calc-vertex face :height height)))
+        ;mesh (-> mesh (op/ortho get-vertex))
         mesh (op/catmull-clark mesh)
         mesh (op/catmull-clark mesh)
         mesh (g/tessellate mesh)
@@ -287,6 +290,42 @@
 ; ==============================================================================
 ; Research & Development
 
+(defn cc-test-01 []
+  (let [seed (ph/dodecahedron 10)
+        mesh (seed->mesh seed)
+        ;mesh (-> mesh (op/ortho))
+        mesh (op/catmull-clark mesh)
+        mesh (op/catmull-clark mesh)
+        mesh (g/tessellate mesh)
+        mesh (op/colorize mesh get-face-color-abs-normal)]
+    mesh))
+
+;(time (save-x3d "output/sandbox/cc-test-01.x3d" (cc-test-01)))
+
+(defn cc-test-02 []
+  (let [seed (ph/dodecahedron 10)
+        mesh (seed->mesh seed)
+        ;mesh (-> mesh (op/ortho))
+        mesh (op/not-quite-catmull-clark mesh)
+        mesh (op/not-quite-catmull-clark mesh)
+        mesh (g/tessellate mesh)
+        mesh (op/colorize mesh get-face-color-abs-normal)]
+    mesh))
+
+;(time (save-x3d "output/sandbox/cc-test-02.x3d" (cc-test-02)))
+
+(defn cc-test-03 []
+  (let [seed (ph/dodecahedron 10)
+        mesh (seed->mesh seed)
+        ;mesh (-> mesh (op/ortho))
+        mesh (-> mesh (op/complexify :f-factor 0.3 :v-factor 0.2))
+        mesh (-> mesh (op/complexify :f-factor 0.3 :v-factor 0.2))
+        mesh (g/tessellate mesh)
+        mesh (op/colorize mesh get-face-color-abs-normal)]
+    mesh))
+
+;(time (save-x3d "output/sandbox/cc-test-03.x3d" (cc-test-03)))
+
 (defn foobar-test-01 []
   (let [seed (ph/dodecahedron 10)
         mesh (seed->mesh seed)
@@ -301,7 +340,24 @@
         mesh (op/colorize mesh get-face-color-average-comp-normal)]
     mesh))
 
-(time (save-x3d "output/sandbox/foobar-test-01.x3d" (foobar-test-01)))
+;(time (save-x3d "output/sandbox/foobar-test-01.x3d" (foobar-test-01)))
 
-(def foo (seed->mesh (cu/cuboid -5 10)))
-(def bar (g/tessellate foo))
+(defn skeletonize-test-01 []
+  (let [seed (ph/dodecahedron 10)
+        mesh (seed->mesh seed)
+        mesh (-> mesh (op/skeletonize :thickness 3
+                                      :get-f-factor (fn [_ _] 0.5)))
+        ;mesh (-> mesh (op/skeletonize :thickness 1
+        ;                              :get-f-factor (fn [_ _] 0.5)))
+        ;mesh (op/catmull-clark mesh)
+        ;mesh (op/catmull-clark mesh)
+        ;mesh (op/catmull-clark mesh)
+        mesh (g/tessellate mesh)
+        mesh (op/colorize mesh)]
+    mesh))
+
+(time (save-x3d "output/sandbox/skeletonize-test-01.x3d" (skeletonize-test-01)))
+
+;(def foo (seed->mesh (cu/cuboid -5 10)))
+;(def bar (g/tessellate foo))
+;(def baz (g/compute-vertex-normals foo))

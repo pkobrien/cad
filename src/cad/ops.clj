@@ -31,13 +31,15 @@
 (defn face-edges
   "Returns a lazy seq of edges for a face."
   [face]
-  (->> face (first) (conj face) (partition 2 1)))
+  (let [face (vec face)]
+    (partition 2 1 (conj face (first face)))))
 
 (defn face-loop-triples
   "Takes a mesh face (vector of points) and returns lazyseq of successive
   point triples: [prev curr next]"
   [face]
-  (->> face (first) (conj face) (cons (peek face)) (partition 3 1)))
+  (let [face (vec face)]
+    (partition 3 1 (cons (peek face) (conj face (first face))))))
 
 (defn face-neighbors
   "Returns a set of faces that neighbor the given face."
@@ -184,16 +186,16 @@
 
 (defn skeletonize
   "Return mesh with all the flesh removed."
-  [{:keys [faces edges vertices] :as mesh} & {:keys [thickness get-f-factor]
-                                              :or {thickness 1}}]
+  [{:keys [faces] :as mesh} & {:keys [thickness get-f-factor]
+                               :or {thickness 1}}]
   (let [get-f-fact (fn [mesh face] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
         vnormals (:vnormals (g/compute-vertex-normals (kis mesh)))
         mesh (assoc mesh :vnormals vnormals)
         offset (fn [vert face f-factor] (g/mix vert (gu/centroid face) f-factor))
-        full-inner-face (fn [outer-face thickness]
-                          (vec (for [vertex (reverse outer-face)]
-                                 (g/- vertex (g/* (vnormals vertex) thickness)))))
+        opposite-face (fn [outer-face thickness]
+                        (vec (for [vertex (reverse outer-face)]
+                               (g/+ vertex (g/* (vnormals vertex) (- thickness))))))
         new-face (fn [[c n] face f-factor]
                    [c n (offset n face f-factor) (offset c face f-factor)])
         new-faces (fn [face f-factor]
@@ -208,11 +210,12 @@
                             (mid-face outer-edge outer-f inner-edge inner-f f-factor))
                           (face-edges outer-f) (face-edges inner-f)))
         subdivide (fn [outer-face]
-                    (let [inner-face (full-inner-face outer-face thickness)]
+                    (let [inner-face (opposite-face outer-face thickness)]
                       (if-let [f-factor (get-f-factor mesh outer-face)]
-                        (concat (new-faces outer-face f-factor)
-                                (new-faces inner-face f-factor)
-                                (mid-faces outer-face (vec (reverse inner-face)) f-factor))
+                        (concat
+                          (new-faces outer-face f-factor)
+                          (new-faces inner-face f-factor)
+                          (mid-faces outer-face (vec (reverse inner-face)) f-factor))
                         [outer-face inner-face])))]
     (->> (mapcat subdivide faces)
          (g/into (g/clear* mesh)))))
