@@ -1,11 +1,5 @@
 (ns cad.geom
-  (:require [cad.x3d :as x3d]
-            [clojure.java.io :as io]
-            [clojure.core.reducers :as r]
-            [clojure.string :as string]
-            [clj-time.format :as tf]
-            [clj-time.core :as time]
-            [clojure.data.xml :as xml]
+  (:require [cad.core :as cad]
             [thi.ng.geom.aabb :as ab]
             [thi.ng.geom.basicmesh :as bm]
             [thi.ng.geom.bezier :as bz]
@@ -40,31 +34,6 @@
 ; ==============================================================================
 ; Shared constants and functions
 
-(defn save-stl
-  [path mesh]
-  (with-open [out (io/output-stream path)]
-    (mio/write-stl
-      (mio/wrapped-output-stream out)
-      (g/tessellate mesh))))
-
-(defn save-x3d
-  [path mesh & {:keys [indent?] :or {indent? false}}]
-  (let [now (time/now)
-        date (tf/unparse (tf/formatters :rfc822) now)
-        year (tf/unparse (tf/formatters :year) now)
-        copy (str "Copyright " year " Patrick K. O'Brien")
-        meta (array-map
-               :creator "Patrick K. O'Brien"
-               :created date
-               :copyright copy
-               :generator "Custom Clojure Code")
-        units [(array-map
-                 :category "length"
-                 :name "millimeters"
-                 :conversionFactor "0.001")]]
-    (with-open [out (io/writer path)]
-      (x3d/write-x3d out mesh :indent? indent? :meta meta))))
-
 (defn p-mesh
   [f scale]
   (g/into (gm/gmesh) (f scale)))
@@ -85,7 +54,7 @@
 (defn hexahedron []
   (-> (cu/cuboid -5 10) (g/as-mesh)))
 
-;(time (save-x3d "output/geom/hexahedron.x3d" (hexahedron)))
+;(time (cad/save-x3d "output/geom/hexahedron.x3d" (hexahedron)))
 
 (defn platonic-solids []
   (let [th (-> ph/tetrahedron (p-mesh 10) (g/translate (vec3 0 0 0)))
@@ -96,4 +65,4 @@
         mesh (mesh-union [th oh hh ih dh])]
     mesh))
 
-;(time (save-stl "output/geom/platonic-solids.stl" (platonic-solids)))
+;(time (cad/save-stl "output/geom/platonic-solids.stl" (platonic-solids)))

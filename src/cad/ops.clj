@@ -8,17 +8,21 @@
 ; ==============================================================================
 ; Shared constants and functions
 
-;(defn into-map [f coll]
-;  (into {} (for [item coll] [item (f item)])))
+(defn rep
+  "Repeat operation f on mesh n times."
+  [mesh f n]
+  (nth (iterate f mesh) n))
+
+(defn seed->mesh
+  "Returns a mesh for a seed collection of vertices."
+  [seed]
+  (g/into (gm/gmesh) seed))
 
 (defn calc-vertex
-  "Returns a vertex at height distance from face-point along the normal."
+  "Returns a vertex at height distance from face-point along the face normal."
   [face & {:keys [point height] :or {height 0}}]
   (let [point (or point (gu/centroid face))]
-    (-> (take 3 face)
-        (gu/ortho-normal)
-        (g/* height)
-        (g/+ point))))
+    (-> (take 3 face) (gu/ortho-normal) (g/* height) (g/+ point))))
 
 (defn calc-vnp-map
   [{:keys [vertices] :as mesh}]
@@ -49,6 +53,13 @@
                                   (edge-map (set edge)))) (face-edges face))
         faces (clojure.set/difference faces #{face})]
     faces))
+
+(defn get-v-edge-count-height
+  "Returns a function that returns a vertex based on the number of face sides."
+  [edge-count-height-map]
+  (fn [mesh face]
+    (if-let [height (edge-count-height-map (count face))]
+      (calc-vertex face :height height))))
 
 (defn vertex-edges
   "Returns a vector of edges for a vertex in ccw order."
