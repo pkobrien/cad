@@ -1,42 +1,14 @@
 (ns cad.shapeways
-  (:require [cad.ops :as op]
-            [cad.x3d :as x3d]
-            [clojure.java.io :as io]
-            [clj-time.format :as tf]
-            [clj-time.core :as time]
+  (:require [cad.core :as cad]
+            [cad.ops :as op]
             [thi.ng.color.core :as col]
             [thi.ng.geom.cuboid :as cu]
             [thi.ng.geom.core :as g]
-            [thi.ng.geom.gmesh :as gm]
-            [thi.ng.geom.core.utils :as gu]
             [thi.ng.geom.mesh.polyhedra :as ph]))
 
 
 ; ==============================================================================
 ; Shared constants and functions
-
-(defn save-x3d
-  [path mesh & {:keys [indent?] :or {indent? false}}]
-  (let [now (time/now)
-        date (tf/unparse (tf/formatters :rfc822) now)
-        year (tf/unparse (tf/formatters :year) now)
-        copy (str "Copyright " year " Patrick K. O'Brien")
-        meta (array-map
-               :creator "Patrick K. O'Brien"
-               :created date
-               :copyright copy
-               :generator "Custom Clojure Code")
-        units [(array-map
-                 :category "length"
-                 :name "millimeters"
-                 :conversionFactor "0.001")]]
-    (with-open [out (io/writer path)]
-      (x3d/write-x3d out mesh :indent? indent? :meta meta))))
-
-(defn seed->mesh
-  "Returns a mesh for a seed collection of vertices."
-  [seed]
-  (g/into (gm/gmesh) seed))
 
 
 ; ==============================================================================
@@ -47,9 +19,18 @@
         alpha 1.0]
     [r g b alpha]))
 
+(defn get-face-color-average-complementary-plus-normal [mesh face]
+  (let [[x y z] (mapv #(Math/abs %) (g/face-normal mesh face))
+        average (/ (+ x y z) 3.0)
+        comp? (neg? (apply + (g/face-normal mesh face)))
+        color (col/as-rgba (col/hsva average (- 1.0 x) (- 1.0 y) (- 1.0 z)))
+        ;color (col/as-rgba (col/hsva average x y z))
+        color (if comp? (col/complementary color) color)]
+    @color))
+
 
 ; ==============================================================================
-; Designs
+; Designs uploaded to Shapeways
 
 (defn hexa-kis-cc3-kis
   "
@@ -57,15 +38,28 @@
   https://www.shapeways.com/model/3dtools/4110302/1/26?key=3be3891e92cfa7cb33ad3a71008c1106
   "
   []
-  (let [seed (cu/cuboid -5 10)
-        mesh (seed->mesh seed)
-        mesh (-> mesh (op/kis #(op/calc-vertex %2 :height 10)))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/kis #(op/calc-vertex %2 :height -0.25)))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-abs-normal)]
-    mesh))
+  (-> (cu/cuboid -5 10)
+      (op/seed->mesh)
+      (op/kis #(op/calc-vertex %2 :height 10))
+      (op/rep op/catmull-clark 3)
+      (op/kis #(op/calc-vertex %2 :height -0.25))
+      (g/tessellate)
+      (op/colorize get-face-color-abs-normal)))
 
-;(time (save-x3d "output/shapeways/hexa-kis-cc3-kis.x3d" (hexa-kis-cc3-kis)))
+;(time (cad/save-x3d "output/shapeways/hexa-kis-cc3-kis.x3d" (hexa-kis-cc3-kis)))
+
+(defn dodeca-ambo-kis
+  "
+  http://shpws.me/L2CZ
+  https://www.shapeways.com/model/3dtools/4123396/1/26?key=362cca1b87cad2789e9abae2a9fe44fc
+  "
+  []
+  (-> (ph/dodecahedron 10)
+      (op/seed->mesh)
+      (op/rep op/ambo 3)
+      (op/kis (op/get-v-edge-count-height {3 2.5, 5 -10}))
+      (op/rep op/catmull-clark 3)
+      (g/tessellate)
+      (op/colorize get-face-color-average-complementary-plus-normal)))
+
+;(time (cad/save-x3d "output/shapeways/dodeca-ambo-kis.x3d" (dodeca-ambo-kis)))
