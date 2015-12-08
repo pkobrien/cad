@@ -32,12 +32,7 @@
 ; ==============================================================================
 ; Designs uploaded to Shapeways
 
-(defn hexa-kis-cc3-kis
-  "
-  http://shpws.me/L0c3
-  https://www.shapeways.com/model/3dtools/4110302/1/26?key=3be3891e92cfa7cb33ad3a71008c1106
-  "
-  []
+(defn hexa-kis-cc3-kis "http://shpws.me/L0c3" []
   (-> (cu/cuboid -5 10)
       (op/seed->mesh)
       (op/kis #(op/calc-vertex %2 :height 10))
@@ -48,12 +43,7 @@
 
 ;(time (cad/save-x3d "output/shapeways/hexa-kis-cc3-kis.x3d" (hexa-kis-cc3-kis)))
 
-(defn dodeca-ambo-kis
-  "
-  http://shpws.me/L2CZ
-  https://www.shapeways.com/model/3dtools/4123396/1/26?key=362cca1b87cad2789e9abae2a9fe44fc
-  "
-  []
+(defn dodeca-ambo-kis "http://shpws.me/L2CZ" []
   (-> (ph/dodecahedron 10)
       (op/seed->mesh)
       (op/rep op/ambo 3)

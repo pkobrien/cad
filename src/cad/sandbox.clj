@@ -118,133 +118,96 @@
 ;(time (cad/save-x3d "output/sandbox/ambo-test-03.x3d" (ambo-test-03)))
 
 (defn complexify-test-01 []
-  (let [seed (ph/icosahedron 10)
-        mesh (op/seed->mesh seed)
-        f-f 0.3
-        v-f 0.3
-        mesh (-> mesh (op/complexify :f-factor 0.4 :v-factor 0.25))
-        mesh (-> mesh (op/complexify :f-factor 0.2 :v-factor 0.5))
-        mesh (-> mesh (op/complexify :f-factor 0.1 :v-factor 0.75))
-        ;mesh (-> mesh (op/complexify :f-factor f-f :v-factor v-f))
-        ;mesh (-> mesh (op/complexify :f-factor f-f :v-factor v-f))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh)]
-    mesh))
+  (-> (ph/dodecahedron 10)
+      (op/seed->mesh)
+      (op/complexify :f-factor 0.4 :v-factor 0.25)
+      (op/complexify :f-factor 0.2 :v-factor 0.50)
+      (op/complexify :f-factor 0.1 :v-factor 0.75)
+      (g/tessellate)
+      (op/colorize)))
 
 ;(time (cad/save-x3d "output/sandbox/complexify-test-01.x3d" (complexify-test-01)))
 
 (defn complexify-test-02 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        get-vertex (fn [mesh face]
-                     (if-let [height ({3 -0.1, 4 +2, 5 -7} (count face))]
-                       (op/calc-vertex face :height height)))
-        mesh (-> mesh (op/kis get-vertex))
-        mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        get-vertex (fn [mesh face]
-                     (op/calc-vertex face :height -0.2))
-        mesh (-> mesh (op/kis get-vertex))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-average-complementary-normal)]
-    mesh))
+  (-> (ph/dodecahedron 10)
+      (op/seed->mesh)
+      (op/complexify :f-factor 0.5 :v-factor 0.25)
+      (op/kis (op/get-v-edge-count-height {3 -0.1, 4 +2, 5 -7}))
+      (op/complexify :f-factor 0.5 :v-factor 0.25)
+      (op/kis (op/get-v-height -0.2))
+      (g/tessellate)
+      (op/colorize get-face-color-average-complementary-normal)))
+
+;(time (cad/save-x3d "output/sandbox/complexify-test-02.x3d" (complexify-test-02)))
 
 (defn complexify-test-03 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/complexify :f-factor 0.25 :v-factor 0.25))
-        get-vertex (fn [mesh face]
-                     (if-let [height ({4 +3, 5 -7} (count face))]
-                       (op/calc-vertex face :height height)))
-        mesh (-> mesh (op/kis get-vertex))
-        mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-average-complementary-plus-normal)
-        mesh (op/colorize mesh get-face-color-blend-neighbors)
-        mesh (op/colorize mesh get-face-color-blend-neighbors)
-        mesh (op/colorize mesh get-face-color-blend-neighbors)
-        mesh (op/colorize mesh get-face-color-blend-neighbors)
-        mesh (op/colorize mesh get-face-color-blend-neighbors)
-        mesh (op/colorize mesh get-face-color-blend-neighbors)
-        ]
-    mesh))
+  (-> (ph/dodecahedron 10)
+      (op/seed->mesh)
+      (op/complexify :f-factor 0.25 :v-factor 0.25)
+      (op/kis (op/get-v-edge-count-height {4 +3, 5 -7}))
+      (op/complexify :f-factor 0.5 :v-factor 0.25)
+      (g/tessellate)
+      (op/colorize get-face-color-average-complementary-normal)
+      (op/rep #(op/colorize % get-face-color-blend-neighbors) 6)))
+
+;(time (cad/save-x3d "output/sandbox/complexify-test-03.x3d" (complexify-test-03)))
 
 (defn kis-test-01 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/kis :height 5))
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/kis :height -2))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-average-complementary-plus-normal)]
-    mesh))
+  (-> (cu/cuboid -5 10)
+      (op/seed->mesh)
+      (op/kis (op/get-v-height 5))
+      (op/catmull-clark)
+      (op/kis (op/get-v-height -2))
+      (op/rep op/catmull-clark 2)
+      (g/tessellate)
+      (op/colorize get-face-color-average-complementary-plus-normal)))
+
+;(time (cad/save-x3d "output/sandbox/kis-test-01.x3d" (kis-test-01)))
 
 (defn kis-test-02 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/kis :height 10))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/kis :height -1))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-abs-normal)]
-    mesh))
+  (-> (cu/cuboid -5 10)
+      (op/seed->mesh)
+      (op/kis (op/get-v-height 10))
+      (op/rep op/catmull-clark 3)
+      (op/kis (op/get-v-height -1))
+      (g/tessellate)
+      (op/colorize get-face-color-abs-normal)))
+
+;(time (cad/save-x3d "output/sandbox/kis-test-02.x3d" (kis-test-02)))
 
 (defn kis-test-03 []
-  (let [seed (ph/icosahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/kis :height 10))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/kis :height 0.05))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-invert-abs-normal)]
-    mesh))
+  (-> (ph/icosahedron 10)
+      (op/seed->mesh)
+      (op/kis (op/get-v-height 10))
+      (op/rep op/catmull-clark 3)
+      (op/kis (op/get-v-height 0.05))
+      (g/tessellate)
+      (op/colorize get-face-color-invert-abs-normal)))
+
+;(time (cad/save-x3d "output/sandbox/kis-test-03.x3d" (kis-test-03)))
 
 (defn kis-test-04 []
-  (let [seed (ph/octahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/ortho :height 5))
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/kis :height -2))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-new)]
-    mesh))
+  (-> (ph/octahedron 10)
+      (op/seed->mesh)
+      (op/ortho (op/get-v-height 5))
+      (op/catmull-clark)
+      (op/kis (op/get-v-height -2))
+      (op/rep op/catmull-clark 3)
+      (g/tessellate)
+      (op/colorize get-face-color-new)))
 
 ;(time (cad/save-x3d "output/sandbox/kis-test-04.x3d" (kis-test-04)))
 
 (defn ortho-test-01 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/ortho #(op/calc-vertex %2 :height 0)))
-        get-vertex (fn [mesh face]
-                     (if-let [height ({3 -0.2, 4 +2, 5 -7} (count face))]
-                       (op/calc-vertex face :height height)))
-        ;mesh (-> mesh (op/ortho get-vertex))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-abs-normal)]
-    mesh))
+  (-> (ph/dodecahedron 10)
+      (op/seed->mesh)
+      (op/ortho (op/get-v-height 0))
+      ;(op/ortho (op/get-v-edge-count-height {3 -0.2, 4 +2, 5 -7}))
+      (op/rep op/catmull-clark 2)
+      (g/tessellate)
+      (op/colorize get-face-color-abs-normal)))
 
 ;(time (cad/save-x3d "output/sandbox/ortho-test-01.x3d" (ortho-test-01)))
-
-;(defn truncate-test-01 []
-;  (let [seed (cu/cuboid -5 10)
-;        mesh (seed->mesh seed)
-;        mesh (-> mesh (op/truncate :percent 50))
-;        mesh (g/tessellate mesh)
-;        mesh (op/colorize mesh get-face-color-abs-normal)]
-;    mesh))
-
-;(time (cad/save-x3d "output/sandbox/truncate-test-01.x3d" (truncate-test-01)))
 
 
 ; ==============================================================================
