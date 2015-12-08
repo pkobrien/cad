@@ -250,95 +250,59 @@
 ; ==============================================================================
 ; Research & Development
 
-(defn cc-test-01 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        ;mesh (-> mesh (op/ortho))
-        mesh (op/catmull-clark mesh)
-        mesh (op/catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-abs-normal)]
-    mesh))
-
-;(time (cad/save-x3d "output/sandbox/cc-test-01.x3d" (cc-test-01)))
-
-(defn cc-test-02 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        ;mesh (-> mesh (op/ortho))
-        mesh (op/not-quite-catmull-clark mesh)
-        mesh (op/not-quite-catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-abs-normal)]
-    mesh))
-
-;(time (cad/save-x3d "output/sandbox/cc-test-02.x3d" (cc-test-02)))
-
-(defn cc-test-03 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        ;mesh (-> mesh (op/ortho))
-        mesh (-> mesh (op/complexify :f-factor 0.3 :v-factor 0.2))
-        mesh (-> mesh (op/complexify :f-factor 0.3 :v-factor 0.2))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-abs-normal)]
-    mesh))
-
-;(time (cad/save-x3d "output/sandbox/cc-test-03.x3d" (cc-test-03)))
-
-(defn foobar-test-01 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        get-vertex (fn [mesh face]
-                     (if-let [height ({3 -0.2, 4 +2, 5 -7} (count face))]
-                       (op/calc-vertex face :height height)))
-        mesh (-> mesh (op/kis get-vertex))
-        mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh get-face-color-average-complementary-normal)]
-    mesh))
-
-;(time (cad/save-x3d "output/sandbox/foobar-test-01.x3d" (foobar-test-01)))
-
 (defn skeletonize-test-01 []
-  (let [seed (ph/dodecahedron 10)
-        mesh (op/seed->mesh seed)
-        mesh (-> mesh (op/skeletonize :thickness 3
-                                      :get-f-factor (fn [_ _] 0.5)))
-        ;mesh (-> mesh (op/skeletonize :thickness 1
-        ;                              :get-f-factor (fn [_ _] 0.5)))
-        ;mesh (op/catmull-clark mesh)
-        ;mesh (op/catmull-clark mesh)
-        ;mesh (op/catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh)]
+  (let [mesh (-> (cu/cuboid -5 10)
+                 ;(ph/dodecahedron 10)
+                 (op/seed->mesh))
+        original-faces (:faces mesh)
+        mesh (-> mesh
+                 (op/skeletonize :thickness 5
+                                 :get-f-factor (fn [{:keys [faces]} face]
+                                                 (when (= face (last faces)) 0.5)))
+                 (op/skeletonize :thickness 3
+                                 :get-f-factor (fn [_ face]
+                                                 (when (original-faces face) 0.25)))
+                 (op/rep op/catmull-clark 4)
+                 (g/tessellate)
+                 (op/colorize))]
     mesh))
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-01.x3d" (skeletonize-test-01)))
 
 (defn skeletonize-test-02 []
-  (let [seed (cu/cuboid -5 10)
-        mesh (op/seed->mesh seed)
-        ;mesh (-> mesh (op/complexify :f-factor 0.5 :v-factor 0.25))
-        mesh (-> mesh (op/skeletonize :thickness 4
-                                      :get-f-factor (fn [_ _] 0.25)))
-        ;mesh (-> mesh (op/skeletonize :thickness 2
-        ;                              :get-f-factor (fn [_ _] 0.5)))
-        get-vertex (fn [mesh face]
-                     (if-let [height ({3 +0, 4 +0.2, 5 +0} (count face))]
-                       (op/calc-vertex face :height height)))
-        mesh (-> mesh (op/kis get-vertex))
-        mesh (op/catmull-clark mesh)
-        mesh (-> mesh (op/kis #(op/calc-vertex %2 :height -0.1)))
-        mesh (op/catmull-clark mesh)
-        ;mesh (op/catmull-clark mesh)
-        mesh (g/tessellate mesh)
-        mesh (op/colorize mesh)]
-    mesh))
+  (-> (cu/cuboid -5 10)
+      ;(ph/dodecahedron 10)
+      (op/seed->mesh)
+      (op/skeletonize :thickness 4 :get-f-factor (fn [_ _] 0.25))
+      (op/kis (op/get-v-edge-count-height {3 +0, 4 +0.2, 5 +0}))
+      (op/catmull-clark)
+      (op/kis (op/get-v-height -0.1))
+      (op/catmull-clark)
+      (g/tessellate)
+      (op/colorize)))
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-02.x3d" (skeletonize-test-02)))
+
+(defn skeletonize-test-03 []
+  (let [mesh (-> (cu/cuboid -5 10)
+                 ;(ph/dodecahedron 10)
+                 (op/seed->mesh))
+        original-faces (:faces mesh)
+        mesh (-> mesh
+                 (op/skeletonize :thickness 4
+                                 :get-f-factor (fn [{:keys [faces]} face]
+                                                 (when (= face (last faces)) 0.25)))
+                 (op/skeletonize :thickness 2
+                                 :get-f-factor (fn [_ face]
+                                                 (when (original-faces face) 0.25)))
+                 (op/rep op/catmull-clark 3)
+                 (op/kis (op/get-v-height -0.05))
+                 (g/tessellate)
+                 (op/colorize get-face-color-invert-abs-normal))]
+    mesh))
+
+;(time (cad/save-x3d "output/sandbox/skeletonize-test-03.x3d" (skeletonize-test-03)))
+
 
 ;(def foo (seed->mesh (cu/cuboid -5 10)))
 ;(def bar (g/tessellate foo))

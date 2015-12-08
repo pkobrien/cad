@@ -54,6 +54,12 @@
         faces (clojure.set/difference faces #{face})]
     faces))
 
+(defn get-v-height
+  "Returns a function that returns a vertex based on the given height."
+  [height]
+  (fn [mesh face]
+    (calc-vertex face :height height)))
+
 (defn get-v-edge-count-height
   "Returns a function that returns a vertex based on the number of face sides."
   [edge-count-height-map]
