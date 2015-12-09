@@ -1,12 +1,29 @@
 (ns cad.ops
   (:require [clojure.set]
+            [thi.ng.dstruct.core :as d]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
-            [thi.ng.geom.core.utils :as gu]))
+            [thi.ng.geom.core.utils :as gu]
+            [thi.ng.geom.core.vector :as v :refer [vec2 vec3]]))
 
 
 ; ==============================================================================
 ; Shared constants and functions
+
+(defmacro spy [x]
+  `(let [x# ~x]
+     (println "<=" '~x "=>")
+     (println x#)
+     x#))
+
+(defn abs-zero
+  [x]
+  (if (zero? x) 0.0 x))
+
+(defn ortho-normal
+  ([[a b c]] (ortho-normal a b c))
+  ([a b] (g/normalize (g/cross a b)))
+  ([a b c] (vec3 (mapv abs-zero (g/normalize (g/cross (g/- b a) (g/- c a)))))))
 
 (defn rep
   "Repeat operation f on mesh n times."
@@ -22,7 +39,7 @@
   "Returns a vertex at height distance from face-point along the face normal."
   [face & {:keys [point height] :or {height 0}}]
   (let [point (or point (gu/centroid face))]
-    (-> (take 3 face) (gu/ortho-normal) (g/* height) (g/+ point))))
+    (-> (take 3 face) (ortho-normal) (g/* height) (g/+ point))))
 
 (defn calc-vnp-map
   [{:keys [vertices] :as mesh}]
@@ -31,6 +48,35 @@
                            [vertex (into {} (map np-f (vertices vertex)))]))
         mesh (assoc mesh :vnp-map vnp-map)]
     mesh))
+
+(defn compute-face-normals
+  [mesh]
+  (loop [norms (transient #{}), fnorms (transient {}), faces (:faces mesh)]
+    (if faces
+      (let [face (first faces)
+            [norms n] (d/index! norms (ortho-normal face))]
+        (recur norms (assoc! fnorms face n) (next faces)))
+      (assoc mesh
+        :normals  (persistent! norms)
+        :fnormals (persistent! fnorms)))))
+
+(defn compute-vertex-normals
+  [mesh]
+  (let [{:keys [vertices normals fnormals] :as mesh} (if (seq (:fnormals mesh)) mesh (compute-face-normals mesh))
+        ntx (comp (map #(get fnormals %)) (distinct))
+        ;ntx (map #(get fnormals %))
+        ]
+    (loop [norms (transient normals), vnorms (transient (hash-map)), verts (keys vertices)]
+      (if verts
+        (let [v (first verts)
+              [norms n] (->> (d/value-set :f vertices v)
+                             (transduce ntx g/+ v/V3)
+                             (g/normalize)
+                             (d/index! norms))]
+          (recur norms (assoc! vnorms v n) (next verts)))
+        (assoc mesh
+          :normals  (persistent! norms)
+          :vnormals (persistent! vnorms))))))
 
 (defn face-edges
   "Returns a lazy seq of edges for a face."
@@ -164,7 +210,7 @@
                        [r g b alpha]))]
      (colorize mesh get-color)))
   ([{:keys [faces] :as mesh} get-color]
-   (let [mesh (g/compute-face-normals mesh)
+   (let [mesh (compute-face-normals mesh)
          fcolors (into {} (for [face faces] [face (get-color mesh face)]))
          mesh (assoc mesh :fcolors fcolors)]
      mesh)))
@@ -207,7 +253,7 @@
                                :or {thickness 1}}]
   (let [get-f-fact (fn [mesh face] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
-        vnormals (:vnormals (g/compute-vertex-normals (kis mesh)))
+        vnormals (:vnormals (compute-vertex-normals (kis mesh)))
         mesh (assoc mesh :vnormals vnormals)
         offset (fn [vert face f-factor] (g/mix vert (gu/centroid face) f-factor))
         opposite-face (fn [outer-face thickness]

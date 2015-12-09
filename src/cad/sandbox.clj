@@ -214,23 +214,23 @@
 ; Research & Development
 
 (defn skeletonize-test-01 []
-  (let [mesh (-> (cu/cuboid -5 10)
-                 ;(ph/dodecahedron 10)
+  (let [mesh (-> ;(cu/cuboid -5 10)
+                 (ph/dodecahedron 10)
                  (op/seed->mesh))
         original-faces (:faces mesh)
         mesh (-> mesh
                  (op/skeletonize :thickness 5
                                  :get-f-factor (fn [{:keys [faces]} face]
                                                  (when (= face (last faces)) 0.5)))
-                 (op/skeletonize :thickness 3
+                 (op/skeletonize :thickness 2
                                  :get-f-factor (fn [_ face]
                                                  (when (original-faces face) 0.25)))
-                 (op/rep op/catmull-clark 4)
+                 (op/rep op/catmull-clark 1)
                  (g/tessellate)
                  (op/colorize))]
     mesh))
 
-;(time (cad/save-x3d "output/sandbox/skeletonize-test-01.x3d" (skeletonize-test-01)))
+(time (cad/save-x3d "output/sandbox/skeletonize-test-01.x3d" (skeletonize-test-01)))
 
 (defn skeletonize-test-02 []
   (-> (cu/cuboid -5 10)
@@ -248,7 +248,6 @@
 
 (defn skeletonize-test-03 []
   (let [mesh (-> (cu/cuboid -5 10)
-                 ;(ph/dodecahedron 10)
                  (op/seed->mesh))
         original-faces (:faces mesh)
         mesh (-> mesh
@@ -266,7 +265,50 @@
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-03.x3d" (skeletonize-test-03)))
 
+(defn skeletonize-test-04 []
+  (let [mesh (-> (cu/cuboid -5 10)
+                 (op/seed->mesh))
+        [wf sf ff nf bf ef] (sort (:faces mesh))
+        mesh (-> mesh
+                 (op/skeletonize
+                   :thickness 6
+                   :get-f-factor (fn [{:keys [faces]} face]
+                                   (when (#{nf sf} face) 0.5)))
+                 (op/skeletonize
+                   :thickness 2
+                   :get-f-factor (fn [_ face]
+                                   (when (#{ef wf ff bf} face) 0.25)))
+                 (op/rep op/catmull-clark 3)
+                 (g/tessellate)
+                 (op/colorize get-face-color-invert-abs-normal))]
+    mesh))
 
-;(def foo (seed->mesh (cu/cuboid -5 10)))
+;(time (cad/save-x3d "output/sandbox/skeletonize-test-04.x3d" (skeletonize-test-04)))
+
+(defn skeletonize-test-05 []
+  (let [mesh (-> (cu/cuboid -5 10)
+                 (op/seed->mesh))
+        [wf sf ff nf bf ef] (sort (:faces mesh))
+        mesh (-> mesh
+                 (op/skeletonize
+                   :thickness 5
+                   :get-f-factor (fn [{:keys [faces]} face]
+                                   (when (#{nf sf} face) 0.2)))
+                 (op/skeletonize
+                   :thickness 1
+                   :get-f-factor (fn [_ face]
+                                   (when ((set (map op/ortho-normal #{ef wf ff bf}))
+                                           (op/ortho-normal face)) 0.1)))
+                 (op/rep op/catmull-clark 2)
+                 (op/kis)
+                 (op/kis (op/get-v-edge-count-height {3 -0.01}))
+                 (g/tessellate)
+                 (op/colorize get-face-color-invert-abs-normal))]
+    mesh))
+
+;(time (cad/save-x3d "output/sandbox/skeletonize-test-05.x3d" (skeletonize-test-05)))
+
+
+(def foo (op/seed->mesh (cu/cuboid -5 10)))
 ;(def bar (g/tessellate foo))
-;(def baz (g/compute-vertex-normals foo))
+;(def baz (op/compute-vertex-normals foo))
