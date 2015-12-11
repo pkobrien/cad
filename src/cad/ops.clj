@@ -20,10 +20,19 @@
   [x]
   (if (zero? x) 0.0 x))
 
+(defn round2
+  "Round a double to the given precision (number of significant digits)"
+  [precision d]
+  (let [factor (Math/pow 10 precision)]
+    (/ (Math/round (* d factor)) factor)))
+
+(def round2safe (partial round2 14))
+
 (defn ortho-normal
   ([[a b c]] (ortho-normal a b c))
   ([a b] (g/normalize (g/cross a b)))
-  ([a b c] (vec3 (mapv abs-zero (g/normalize (g/cross (g/- b a) (g/- c a)))))))
+  ([a b c] (vec3 (mapv (comp round2safe abs-zero)
+                       (g/normalize (g/cross (g/- b a) (g/- c a)))))))
 
 (defn rep
   "Repeat operation f on mesh n times."
@@ -41,6 +50,15 @@
   (let [point (or point (gu/centroid face))]
     (-> (take 3 face) (ortho-normal) (g/* height) (g/+ point))))
 
+(defn calc-face-area-map
+  [{:keys [faces] :as mesh}]
+  (let [area-map (into {} (map (fn [face]
+                                 [face (apply gu/tri-area3 face)]) faces))]
+    (-> mesh
+        (assoc-in [:face-area :map] area-map)
+        (assoc-in [:face-area :min] (apply min (vals area-map)))
+        (assoc-in [:face-area :max] (apply max (vals area-map))))))
+
 (defn calc-vnp-map
   [{:keys [vertices] :as mesh}]
   (let [np-f (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
@@ -57,15 +75,13 @@
             [norms n] (d/index! norms (ortho-normal face))]
         (recur norms (assoc! fnorms face n) (next faces)))
       (assoc mesh
-        :normals  (persistent! norms)
+        :normals (persistent! norms)
         :fnormals (persistent! fnorms)))))
 
 (defn compute-vertex-normals
   [mesh]
   (let [{:keys [vertices normals fnormals] :as mesh} (if (seq (:fnormals mesh)) mesh (compute-face-normals mesh))
-        ntx (comp (map #(get fnormals %)) (distinct))
-        ;ntx (map #(get fnormals %))
-        ]
+        ntx (comp (map #(get fnormals %)) (distinct))]
     (loop [norms (transient normals), vnorms (transient (hash-map)), verts (keys vertices)]
       (if verts
         (let [v (first verts)
@@ -75,7 +91,7 @@
                              (d/index! norms))]
           (recur norms (assoc! vnorms v n) (next verts)))
         (assoc mesh
-          :normals  (persistent! norms)
+          :normals (persistent! norms)
           :vnormals (persistent! vnorms))))))
 
 (defn face-edges
@@ -91,8 +107,8 @@
   (let [face (vec face)]
     (partition 3 1 (cons (peek face) (conj face (first face))))))
 
-(defn face-neighbors
-  "Returns a set of faces that neighbor the given face."
+(defn face-edge-neighbors
+  "Returns a set of faces that neighbor one of the given face's edges."
   [mesh face]
   (let [edge-map (:edges mesh)
         faces (into #{} (mapcat (fn [edge]
@@ -232,7 +248,9 @@
                         va (get-in fv-map [f1 v2])
                         vb (get-in fv-map [f1 v1])
                         vc (get-in fv-map [f2 v1])
-                        vd (get-in fv-map [f2 v2])]
+                        vd (get-in fv-map [f2 v2])
+                        _ (when (some nil? [f1 f2]) (spy [(nil? f1) (nil? f2)]))
+                        ]
                     [va vb vc vd]))
         f-faces (for [face faces]
                   (for [vert face]
@@ -253,33 +271,26 @@
                                :or {thickness 1}}]
   (let [get-f-fact (fn [mesh face] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
-        vnormals (:vnormals (compute-vertex-normals (kis mesh)))
-        mesh (assoc mesh :vnormals vnormals)
+        vnormals (:vnormals (compute-vertex-normals (g/tessellate mesh)))
         offset (fn [vert face f-factor] (g/mix vert (gu/centroid face) f-factor))
+        offset-face (fn [face f-factor] (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
                         (vec (for [vertex (reverse outer-face)]
                                (g/+ vertex (g/* (vnormals vertex) (- thickness))))))
-        new-face (fn [[c n] face f-factor]
-                   [c n (offset n face f-factor) (offset c face f-factor)])
-        new-faces (fn [face f-factor]
-                    (mapv #(new-face % face f-factor) (face-edges face)))
-        mid-face (fn [[outer-c outer-n] outer-f [inner-c inner-n] inner-f f-factor]
-                   [(offset outer-c outer-f f-factor)
-                    (offset outer-n outer-f f-factor)
-                    (offset inner-n inner-f f-factor)
-                    (offset inner-c inner-f f-factor)])
-        mid-faces (fn [outer-f inner-f f-factor]
-                    (mapv (fn [outer-edge inner-edge]
-                            (mid-face outer-edge outer-f inner-edge inner-f f-factor))
-                          (face-edges outer-f) (face-edges inner-f)))
-        subdivide (fn [outer-face]
-                    (let [inner-face (opposite-face outer-face thickness)]
-                      (if-let [f-factor (get-f-factor mesh outer-face)]
-                        (concat
-                          (new-faces outer-face f-factor)
-                          (new-faces inner-face f-factor)
-                          (mid-faces outer-face (vec (reverse inner-face)) f-factor))
-                        [outer-face inner-face])))]
+        new-face (fn [[c n] [c-off n-off]]
+                   [c n n-off c-off])
+        new-faces (fn [face face-off]
+                    (mapv #(new-face %1 %2) (face-edges face) (face-edges face-off)))
+        subdivide (fn [outer-f]
+                    (let [inner-f (opposite-face outer-f thickness)]
+                      (if-let [f-factor (get-f-factor mesh outer-f)]
+                        (let [outer-off (offset-face outer-f f-factor)
+                              inner-off (offset-face inner-f f-factor)]
+                          (concat
+                            (new-faces outer-f outer-off)
+                            (new-faces inner-f inner-off)
+                            (new-faces outer-off (reverse inner-off))))
+                        [outer-f inner-f])))]
     (->> (mapcat subdivide faces)
          (g/into (g/clear* mesh)))))
 
