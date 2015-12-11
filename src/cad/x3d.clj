@@ -75,7 +75,7 @@
                          [:meta {:name (name k) :content (str v)}])])
                     [:Scene
                      [:Shape
-                      [:IndexedFaceSet {:solid "false"
+                      [:IndexedFaceSet {:solid "true"
                                         :ccw "true"
                                         :colorPerVertex "false"
                                         :convex "true"
