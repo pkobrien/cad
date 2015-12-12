@@ -10,6 +10,17 @@
 ; ==============================================================================
 ; Shared constants and functions
 
+(defn prn-fev
+  ([mesh]
+   (prn-fev mesh "Mesh"))
+  ([{:keys [faces edges vertices] :as mesh} msg]
+   (prn msg "F" (count faces) "E" (count edges) "V" (count vertices))
+   mesh))
+
+(defn prn-sides [mesh]
+  (prn "Sides-Count" (frequencies (map count (:faces mesh))))
+  mesh)
+
 (defmacro spy [x]
   `(let [x# ~x]
      (println "<=" '~x "=>")
@@ -116,6 +127,10 @@
         faces (clojure.set/difference faces #{face})]
     faces))
 
+(defn get-f-point-centroid
+  [mesh face]
+  (calc-vertex face))
+
 (defn get-v-height
   "Returns a function that returns a vertex based on the given height."
   [height]
@@ -175,16 +190,15 @@
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
   ([mesh]
-   (let [get-vertex (fn [mesh face] (calc-vertex face))]
-     (kis mesh get-vertex)))
-  ([{:keys [faces] :as mesh} get-vertex]
-   (let [new-face (fn [[p c n] new-vertex]
-                    [c n new-vertex])
-         new-faces (fn [face new-vertex]
-                     (mapv #(new-face % new-vertex) (face-loop-triples face)))
+   (kis mesh get-f-point-centroid))
+  ([{:keys [faces] :as mesh} get-f-point]
+   (let [new-face (fn [[p c n] f-point]
+                    [c n f-point])
+         new-faces (fn [face f-point]
+                     (mapv #(new-face % f-point) (face-loop-triples face)))
          subdivide (fn [face]
-                     (if-let [new-vertex (get-vertex mesh face)]
-                       (new-faces face new-vertex)
+                     (if-let [f-point (get-f-point mesh face)]
+                       (new-faces face f-point)
                        [face]))]
      (->> (mapcat subdivide faces)
           (g/into (g/clear* mesh))))))
@@ -192,18 +206,22 @@
 (defn ortho
   "Returns mesh with each n-sided face divided into n quadrilaterals."
   ([mesh]
-   (let [get-vertex (fn [mesh face] (calc-vertex face))]
-     (ortho mesh get-vertex)))
-  ([{:keys [faces] :as mesh} get-vertex]
-   (let [new-face (fn [[p c n] new-vertex]
-                    [(gu/centroid [p c]) c (gu/centroid [c n]) new-vertex])
-         new-faces (fn [face new-vertex]
-                     (mapv #(new-face % new-vertex) (face-loop-triples face)))
-         subdivide (fn [face]
-                     (if-let [new-vertex (get-vertex mesh face)]
-                       (new-faces face new-vertex)
-                       [face]))]
-     (->> (mapcat subdivide faces)
+   (ortho mesh get-f-point-centroid))
+  ([{:keys [faces edges] :as mesh} get-f-point]
+   (let [get-e-point (fn [edge] (gu/centroid (vec edge)))
+         new-face (fn [[p c n] f-point e-points]
+                    [(e-points #{p c}) c (e-points #{c n}) f-point])
+         new-faces (fn [face f-point e-points]
+                     (mapv #(new-face % f-point e-points) (face-loop-triples face)))
+         subdivide (fn [face e-points]
+                     (if-let [f-point (get-f-point mesh face)]
+                       (new-faces face f-point e-points)
+                       (let [edged-f (vec (mapcat (fn [[c n]]
+                                                    [c (e-points #{c n})]) (face-edges face)))]
+                         [edged-f])))
+         e-points (into {} (map (fn [edge]
+                                  [edge (get-e-point edge)]) (keys edges)))]
+     (->> (mapcat #(subdivide % e-points) faces)
           (g/into (g/clear* mesh))))))
 
 ;(defn truncate
@@ -248,9 +266,7 @@
                         va (get-in fv-map [f1 v2])
                         vb (get-in fv-map [f1 v1])
                         vc (get-in fv-map [f2 v1])
-                        vd (get-in fv-map [f2 v2])
-                        _ (when (some nil? [f1 f2]) (spy [(nil? f1) (nil? f2)]))
-                        ]
+                        vd (get-in fv-map [f2 v2])]
                     [va vb vc vd]))
         f-faces (for [face faces]
                   (for [vert face]
@@ -294,6 +310,11 @@
     (->> (mapcat subdivide faces)
          (g/into (g/clear* mesh)))))
 
+(defn tess
+  "Returns a tesselated mesh."
+  [mesh]
+  (g/tessellate mesh {:fn gu/tessellate-3}))
+
 
 ; ==============================================================================
 ; Catmull-Clark Subdivision Operator
@@ -301,9 +322,7 @@
 (defn catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
   [{:keys [faces edges vertices] :as mesh} & {:keys [get-f-point get-e-point get-v-point]}]
-  (let [get-fp (fn [mesh face]
-                 (calc-vertex face))
-        get-ep (fn [edge e-faces f-points]
+  (let [get-ep (fn [edge e-faces f-points]
                  (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
         get-vp (fn [mesh vertex]
                  (let [f (gu/centroid (mapv gu/centroid
@@ -312,7 +331,7 @@
                        n (count vn)
                        r (gu/centroid (mapv #(g/mix vertex %) vn))]
                    (g/addm (g/madd r 2.0 f) (g/* vertex (- n 3)) (/ 1.0 n))))
-        get-f-point (or get-f-point get-fp)
+        get-f-point (or get-f-point get-f-point-centroid)
         get-e-point (or get-e-point get-ep)
         get-v-point (or get-v-point get-vp)
         new-face (fn [[p c n] f-point e-points]

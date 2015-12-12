@@ -38,7 +38,7 @@
       (op/kis #(op/calc-vertex %2 :height 10))
       (op/rep op/catmull-clark 3)
       (op/kis #(op/calc-vertex %2 :height -0.25))
-      (g/tessellate)
+      (g/tessellate) ;(op/tess)
       (op/colorize get-face-color-abs-normal)))
 
 ;(time (cad/save-x3d "output/shapeways/hexa-kis-cc3-kis.x3d" (hexa-kis-cc3-kis)))
@@ -49,7 +49,7 @@
       (op/rep op/ambo 3)
       (op/kis (op/get-v-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 3)
-      (g/tessellate)
+      (g/tessellate) ;(op/tess)
       (op/colorize get-face-color-average-complementary-plus-normal)))
 
 ;(time (cad/save-x3d "output/shapeways/dodeca-ambo-kis.x3d" (dodeca-ambo-kis)))

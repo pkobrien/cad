@@ -61,6 +61,22 @@
         color (reduce #(col/blend %1 %2 0.25) old-color neighbor-colors)]
     @color))
 
+(defn get-face-color-area-max [mesh face]
+  (let [face-area (get-in mesh [:face-area :map face])
+        max-area (get-in mesh [:face-area :max])
+        color (col/as-rgba (col/hsva (/ face-area max-area) 1.0 1.0 1.0))]
+    @color))
+
+(defn get-face-color-area-mod1 [mesh face]
+  (let [face-area (get-in mesh [:face-area :map face])
+        color (col/as-rgba (col/hsva (mod face-area 1) 1.0 1.0 1.0))]
+    @color))
+
+(defn get-face-color-area-mod10 [mesh face]
+  (let [face-area (get-in mesh [:face-area :map face])
+        color (col/as-rgba (col/hsva (mod (* 10 face-area) 1) 1.0 1.0 1.0))]
+    @color))
+
 (defn get-face-color-new-01 [mesh face]
   (let [[x y z] (mapv abs (g/face-normal mesh face))
         color (col/as-rgba (col/hsva (min x y z)
@@ -70,22 +86,6 @@
     @color))
 
 (defn get-face-color-new-02 [mesh face]
-  (let [face-area (get-in mesh [:face-area :map face])
-        max-area (get-in mesh [:face-area :max])
-        color (col/as-rgba (col/hsva (/ face-area max-area) 1.0 1.0 1.0))]
-    @color))
-
-(defn get-face-color-new-03 [mesh face]
-  (let [face-area (get-in mesh [:face-area :map face])
-        color (col/as-rgba (col/hsva (mod face-area 1) 1.0 1.0 1.0))]
-    @color))
-
-(defn get-face-color-new-04 [mesh face]
-  (let [face-area (get-in mesh [:face-area :map face])
-        color (col/as-rgba (col/hsva (mod (* 10 face-area) 1) 1.0 1.0 1.0))]
-    @color))
-
-(defn get-face-color-new-05 [mesh face]
   (let [hue 0.25 sat 0.5 val 0.5
         color (col/as-rgba (col/hsva hue sat val 1.0))]
     @color))
@@ -318,18 +318,24 @@
 (defn skeletonize-test-06 []
   (-> (ph/dodecahedron 10)
       (op/seed->mesh)
-      (op/skeletonize :thickness 2 :get-f-factor (fn [{:keys [faces]} face]
-                                                   (when (= face (last faces)) 0.5)))
+      ;(op/skeletonize :thickness 2 :get-f-factor (fn [{:keys [faces]} face]
+      ;                                             (when (= face (last faces)) 0.5)))
       (op/complexify :f-factor 0.4 :v-factor 0.2)
       ;(op/kis (op/get-v-edge-count-height {4 -0.25}))
       ;(op/ortho (op/get-v-edge-count-height {5 0.25}))
       ;(op/kis (op/get-v-edge-count-height {4 -0.05}))
       ;(op/kis (op/get-v-edge-count-height {3 -0.05}))
-      (op/kis (op/get-v-edge-count-height {4 0}))
+      ;(op/kis (op/get-v-edge-count-height {4 0}))
+      ;(op/ortho)
       (op/ortho (op/get-v-edge-count-height {5 0}))
+      ;(op/ortho)
       ;(op/kis (op/get-v-edge-count-height {4 0}))
       ;(op/kis (op/get-v-edge-count-height {3 0}))
-      (op/colorize get-face-color-new-01)))
+      ;(op/kis)
+      (op/prn-sides)
+      (op/tess)
+      (op/prn-sides)
+      (op/calc-face-area-map) (op/colorize get-face-color-area-max)))
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-06.x3d" (skeletonize-test-06)))
 
@@ -341,8 +347,7 @@
       (op/complexify :f-factor 0.4 :v-factor 0.2)
       (op/rep op/catmull-clark 2)
       (op/kis)
-      (op/calc-face-area-map)
-      (op/colorize get-face-color-new-02)))
+      (op/calc-face-area-map) (op/colorize get-face-color-area-max)))
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-07.x3d" (skeletonize-test-07)))
 
@@ -356,7 +361,7 @@
       (op/rep op/catmull-clark 3)
       (op/kis)
       (op/calc-face-area-map)
-      (op/colorize get-face-color-new-02)))
+      (op/colorize get-face-color-area-max)))
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-08.x3d" (skeletonize-test-08)))
 
@@ -368,35 +373,55 @@
       (op/rep op/catmull-clark 3)
       (op/kis)
       (op/calc-face-area-map)
-      (op/colorize get-face-color-new-04)))
+      (op/colorize get-face-color-area-mod10)))
 
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-09.x3d" (skeletonize-test-09)))
 
 (defn davinci [seed]
   (-> seed
-      (op/seed->mesh)
-      (op/skeletonize :thickness 1 :get-f-factor (fn [mesh face] 0.2))
+      (op/seed->mesh) (op/prn-fev "Seed") (op/prn-sides)
+
+      ;(op/ortho) (prn-fev "Ortho 1")
+      ;
+      ;(op/ortho) (prn-fev "Ortho 2")
+
       (op/complexify :f-factor 0.5 :v-factor 0.25)
+      (op/prn-fev "Complexify") (op/prn-sides)
+
+      ;(op/ortho (op/get-v-edge-count-height {4 0})) (op/prn-fev "Ortho 1")
+      ;
+      ;(op/ortho (op/get-v-edge-count-height {8 0})) (op/prn-fev "Ortho 2")
+      ;
+      ;(op/ortho (op/get-v-edge-count-height {8 0})) (op/prn-fev "Ortho 3")
+
+      (op/skeletonize :thickness 0.5
+                      :get-f-factor (fn [{:keys [faces]} face]
+                                      (when (= 4 (count face)) 0.5)))
+      (op/prn-fev "Skeletonize") (op/prn-sides)
+
+      ;(op/kis)
+
+      (op/rep op/catmull-clark 4) (op/prn-fev "CC") (op/prn-sides)
+
+      ;(op/rep op/catmull-clark 2)
+      ;(op/complexify :f-factor 0.5 :v-factor 0.25)
       ;(op/catmull-clark)
-      (op/kis)
-      (op/calc-face-area-map)
-      ;(op/colorize)
-      (op/colorize get-face-color-new-02)
-      ;(op/colorize get-face-color-new-05)
-      ))
+
+      (op/tess) (op/calc-face-area-map) (op/colorize get-face-color-area-max)
+      (op/prn-fev "Final")))
 
 ;(time (cad/save-x3d "output/sandbox/davinci-tetra-test-01.x3d"
 ;                    (davinci (ph/tetrahedron 10))))
-;
+
 ;(time (cad/save-x3d "output/sandbox/davinci-hexa-test-01.x3d"
 ;                    (davinci (cu/cuboid -5 10))))
-;
+
 ;(time (cad/save-x3d "output/sandbox/davinci-octo-test-01.x3d"
 ;                    (davinci (ph/octahedron 10))))
-;
-;(time (cad/save-x3d "output/sandbox/davinci-dodeca-test-01.x3d"
-;                    (davinci (ph/dodecahedron 10))))
-;
+
+(time (cad/save-x3d "output/sandbox/davinci-dodeca-test-01.x3d"
+                    (davinci (ph/dodecahedron 10))))
+
 ;(time (cad/save-x3d "output/sandbox/davinci-icosa-test-01.x3d"
 ;                    (davinci (ph/icosahedron 10))))
 
@@ -416,9 +441,9 @@
 ;  (-> (cu/cuboid -5 10)
 ;      (davinci)))
 
-(def test-mesh (skeletonize-test-06))
-
-(time (cad/save-x3d "output/sandbox/development-test-01.x3d" test-mesh))
+;(def test-mesh (skeletonize-test-06))
+;
+;(time (cad/save-x3d "output/sandbox/development-test-01.x3d" test-mesh))
 
 
 #_(def foo (-> (ph/dodecahedron 10)
