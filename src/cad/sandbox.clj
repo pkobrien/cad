@@ -22,22 +22,19 @@
 ;        color (-> (mapv get-color normal) (conj 1.0))]
 ;    color))
 
-(defn abs [x]
-  (Math/abs x))
-
 (defn get-face-color-abs-normal [mesh face]
-  (let [[r g b] (mapv abs (g/face-normal mesh face))
+  (let [[r g b] (mapv op/abs (g/face-normal mesh face))
         alpha 1.0]
     [r g b alpha]))
 
 (defn get-face-color-invert-abs-normal [mesh face]
   (let [normal (g/face-normal mesh face)
-        get-color (fn [n] (- 1.0 (abs n)))
+        get-color (fn [n] (- 1.0 (op/abs n)))
         color (-> (mapv get-color normal) (conj 1.0))]
     color))
 
 (defn get-face-color-average-complementary-normal [mesh face]
-  (let [[x y z] (mapv abs (g/face-normal mesh face))
+  (let [[x y z] (mapv op/abs (g/face-normal mesh face))
         average (/ (+ x y z) 3.0)
         comp? (neg? (apply + (g/face-normal mesh face)))
         color (col/as-rgba (col/hsva average 1.0 1.0))
@@ -45,7 +42,7 @@
     @color))
 
 (defn get-face-color-average-complementary-plus-normal [mesh face]
-  (let [[x y z] (mapv abs (g/face-normal mesh face))
+  (let [[x y z] (mapv op/abs (g/face-normal mesh face))
         average (/ (+ x y z) 3.0)
         comp? (neg? (apply + (g/face-normal mesh face)))
         color (col/as-rgba (col/hsva average (- 1.0 x) (- 1.0 y) (- 1.0 z)))
@@ -67,6 +64,12 @@
         color (col/as-rgba (col/hsva (/ face-area max-area) 1.0 1.0 1.0))]
     @color))
 
+(defn get-face-color-area-max-invert [mesh face]
+  (let [face-area (get-in mesh [:face-area :map face])
+        max-area (get-in mesh [:face-area :max])
+        color (col/as-rgba (col/hsva (- 1.0 (/ face-area max-area)) 1.0 1.0 1.0))]
+    @color))
+
 (defn get-face-color-area-mod1 [mesh face]
   (let [face-area (get-in mesh [:face-area :map face])
         color (col/as-rgba (col/hsva (mod face-area 1) 1.0 1.0 1.0))]
@@ -78,7 +81,7 @@
     @color))
 
 (defn get-face-color-new-01 [mesh face]
-  (let [[x y z] (mapv abs (g/face-normal mesh face))
+  (let [[x y z] (mapv op/abs (g/face-normal mesh face))
         color (col/as-rgba (col/hsva (min x y z)
                                      (max x y z)
                                      (- 1.0 (max x y z))
@@ -396,34 +399,38 @@
 
       (op/skeletonize :thickness 0.5
                       :get-f-factor (fn [{:keys [faces]} face]
-                                      (when (= 4 (count face)) 0.5)))
+                                      (when (= 4 (count face)) 0.25)))
       (op/prn-fev "Skeletonize") (op/prn-sides)
 
       ;(op/kis)
 
-      (op/rep op/catmull-clark 4) (op/prn-fev "CC") (op/prn-sides)
+      (op/rep op/catmull-clark 3) (op/prn-fev "CC") (op/prn-sides)
 
       ;(op/rep op/catmull-clark 2)
       ;(op/complexify :f-factor 0.5 :v-factor 0.25)
       ;(op/catmull-clark)
 
-      (op/tess) (op/calc-face-area-map) (op/colorize get-face-color-area-max)
+      (op/tess)
+      (op/prn-fev "Tess")
+      (op/calc-face-area-map)
+      (op/prn-fev "Area Map")
+      (op/colorize get-face-color-area-mod10)
       (op/prn-fev "Final")))
 
-;(time (cad/save-x3d "output/sandbox/davinci-tetra-test-01.x3d"
-;                    (davinci (ph/tetrahedron 10))))
+(time (cad/save-x3d "output/sandbox/davinci-tetra-test-01.x3d"
+                    (davinci (ph/tetrahedron 10))))
 
-;(time (cad/save-x3d "output/sandbox/davinci-hexa-test-01.x3d"
-;                    (davinci (cu/cuboid -5 10))))
+(time (cad/save-x3d "output/sandbox/davinci-hexa-test-01.x3d"
+                    (davinci (cu/cuboid -5 10))))
 
-;(time (cad/save-x3d "output/sandbox/davinci-octo-test-01.x3d"
-;                    (davinci (ph/octahedron 10))))
+(time (cad/save-x3d "output/sandbox/davinci-octo-test-01.x3d"
+                    (davinci (ph/octahedron 10))))
 
 (time (cad/save-x3d "output/sandbox/davinci-dodeca-test-01.x3d"
                     (davinci (ph/dodecahedron 10))))
 
-;(time (cad/save-x3d "output/sandbox/davinci-icosa-test-01.x3d"
-;                    (davinci (ph/icosahedron 10))))
+(time (cad/save-x3d "output/sandbox/davinci-icosa-test-01.x3d"
+                    (davinci (ph/icosahedron 10))))
 
 
 ; ==============================================================================

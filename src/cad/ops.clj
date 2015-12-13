@@ -27,6 +27,9 @@
      (println x#)
      x#))
 
+(defn abs [x]
+  (Math/abs x))
+
 (defn abs-zero
   [x]
   (if (zero? x) 0.0 x))
@@ -313,7 +316,7 @@
 (defn tess
   "Returns a tesselated mesh."
   [mesh]
-  (g/tessellate mesh {:fn gu/tessellate-3}))
+  (g/into (g/clear* mesh) (into [] (comp (map gu/tessellate-3) cat) (g/faces mesh))))
 
 
 ; ==============================================================================
