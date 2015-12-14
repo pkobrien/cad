@@ -1,11 +1,14 @@
 (ns cad.sandbox
-  (:require [cad.core :as cad]
-            [cad.ops :as op]
+  (:require [bardo.ease :as be]
+            [bardo.interpolate :as bi]
+            [cad.core :as cad]
             [thi.ng.color.core :as col]
             [thi.ng.geom.cuboid :as cu]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
+            [thi.ng.math.core :as m]
+            [cad.ops :as op]
             [thi.ng.geom.mesh.polyhedra :as ph]
             [thi.ng.geom.mesh.subdivision :as sd]))
 
@@ -61,36 +64,66 @@
 (defn get-face-color-area-max [mesh face]
   (let [face-area (get-in mesh [:face-area :map face])
         max-area (get-in mesh [:face-area :max])
-        color (col/as-rgba (col/hsva (/ face-area max-area) 1.0 1.0 1.0))]
+        hue (/ face-area max-area)
+        color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
+    @color))
+
+(defn get-face-color-area-distance [mesh face]
+  (let [[x y z] (mapv op/abs (g/face-normal mesh face))
+        delta (- (max x y z) (min x y z))
+        face-area (get-in mesh [:face-area :map face])
+        face-area-mod10 (mod (* 10 face-area) 1)
+        min-area (get-in mesh [:face-area :min])
+        max-area (get-in mesh [:face-area :max])
+        face-dist (get-in mesh [:face-dist :map face])
+        min-dist (get-in mesh [:face-dist :min])
+        max-dist (get-in mesh [:face-dist :max])
+        ;hue (m/map-interval face-area min-area max-area 0.8 1.0)
+        hue (m/map-interval face-dist min-dist max-dist 0.5 1.0)
+        sat (m/map-interval face-area-mod10 0.0 1.0 0.2 1.0)
+        val (m/map-interval delta 0.0 1.0 0.3 0.9)
+        color (col/as-rgba (col/hsva hue sat val 1.0))]
     @color))
 
 (defn get-face-color-area-max-invert [mesh face]
   (let [face-area (get-in mesh [:face-area :map face])
         max-area (get-in mesh [:face-area :max])
-        color (col/as-rgba (col/hsva (- 1.0 (/ face-area max-area)) 1.0 1.0 1.0))]
+        hue (- 1.0 (/ face-area max-area))
+        color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
     @color))
 
 (defn get-face-color-area-mod1 [mesh face]
   (let [face-area (get-in mesh [:face-area :map face])
-        color (col/as-rgba (col/hsva (mod face-area 1) 1.0 1.0 1.0))]
+        hue (mod face-area 1)
+        color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
     @color))
 
 (defn get-face-color-area-mod10 [mesh face]
   (let [face-area (get-in mesh [:face-area :map face])
-        color (col/as-rgba (col/hsva (mod (* 10 face-area) 1) 1.0 1.0 1.0))]
+        hue (mod (* 10 face-area) 1)
+        color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
     @color))
 
 (defn get-face-color-new-01 [mesh face]
   (let [[x y z] (mapv op/abs (g/face-normal mesh face))
-        color (col/as-rgba (col/hsva (min x y z)
-                                     (max x y z)
-                                     (- 1.0 (max x y z))
-                                     1.0))]
+        hue (min x y z)
+        sat (max x y z)
+        val (- 1.0 (max x y z))
+        color (col/as-rgba (col/hsva hue sat val 1.0))]
     @color))
 
 (defn get-face-color-new-02 [mesh face]
-  (let [hue 0.25 sat 0.5 val 0.5
-        color (col/as-rgba (col/hsva hue sat val 1.0))]
+  (let [hue 0.25 sat 0.5 val 0.5 alpha 1.0
+        color (col/as-rgba (col/hsva hue sat val alpha))]
+    @color))
+
+(defn get-face-color-area-max-normal [mesh face]
+  (let [[x y z] (mapv op/abs (g/face-normal mesh face))
+        face-area (get-in mesh [:face-area :map face])
+        max-area (get-in mesh [:face-area :max])
+        hue (/ face-area max-area)
+        sat (max x y z 0.4)
+        color (col/as-rgba (col/hsva hue sat 1.0 1.0))]
     @color))
 
 
@@ -381,56 +414,41 @@
 ;(time (cad/save-x3d "output/sandbox/skeletonize-test-09.x3d" (skeletonize-test-09)))
 
 (defn davinci [seed]
-  (-> seed
-      (op/seed->mesh) (op/prn-fev "Seed") (op/prn-sides)
+  (let [mesh (-> seed
+                 (op/seed->mesh) (op/prn-fev "Seed") (op/prn-sides)
 
-      ;(op/ortho) (prn-fev "Ortho 1")
-      ;
-      ;(op/ortho) (prn-fev "Ortho 2")
+                 (op/complexify :f-factor 0.4 :v-factor -0.2)
+                 (op/prn-fev "Complexify") (op/prn-sides))
+        complex-faces (:faces mesh)
+        mesh-centroid (g/centroid mesh)
+        mesh (-> mesh
+                 (op/kis (op/get-v-edge-count-height {4 +2}))
 
-      (op/complexify :f-factor 0.5 :v-factor 0.25)
-      (op/prn-fev "Complexify") (op/prn-sides)
+                 (op/skeletonize :thickness 0.5
+                                 :get-f-factor (fn [mesh face]
+                                                 (when (#{3} (count face)) 0.1)))
+                 (op/prn-fev "Skeletonize") (op/prn-sides)
 
-      ;(op/ortho (op/get-v-edge-count-height {4 0})) (op/prn-fev "Ortho 1")
-      ;
-      ;(op/ortho (op/get-v-edge-count-height {8 0})) (op/prn-fev "Ortho 2")
-      ;
-      ;(op/ortho (op/get-v-edge-count-height {8 0})) (op/prn-fev "Ortho 3")
+                 (op/rep op/catmull-clark 3) (op/prn-fev "CC") (op/prn-sides)
 
-      (op/skeletonize :thickness 0.5
-                      :get-f-factor (fn [{:keys [faces]} face]
-                                      (when (= 4 (count face)) 0.25)))
-      (op/prn-fev "Skeletonize") (op/prn-sides)
+                 ;(op/kis (op/get-v-height 0.05)) (op/prn-fev "Kis")
 
-      ;(op/kis)
+                 (op/tess) (op/prn-fev "Tess")
 
-      (op/rep op/catmull-clark 3) (op/prn-fev "CC") (op/prn-sides)
+                 (op/calc-face-area-map)
+                 (op/prn-fev "Area Map")
+                 (op/calc-face-distance-map mesh-centroid)
+                 (op/prn-fev "Distance Map")
+                 (op/colorize get-face-color-area-distance)
+                 (op/rep #(op/colorize % get-face-color-blend-neighbors) 1)
+                 (op/prn-fev "Final"))]
+    mesh))
 
-      ;(op/rep op/catmull-clark 2)
-      ;(op/complexify :f-factor 0.5 :v-factor 0.25)
-      ;(op/catmull-clark)
-
-      (op/tess)
-      (op/prn-fev "Tess")
-      (op/calc-face-area-map)
-      (op/prn-fev "Area Map")
-      (op/colorize get-face-color-area-mod10)
-      (op/prn-fev "Final")))
-
-(time (cad/save-x3d "output/sandbox/davinci-tetra-test-01.x3d"
-                    (davinci (ph/tetrahedron 10))))
-
-(time (cad/save-x3d "output/sandbox/davinci-hexa-test-01.x3d"
-                    (davinci (cu/cuboid -5 10))))
-
-(time (cad/save-x3d "output/sandbox/davinci-octo-test-01.x3d"
-                    (davinci (ph/octahedron 10))))
-
-(time (cad/save-x3d "output/sandbox/davinci-dodeca-test-01.x3d"
-                    (davinci (ph/dodecahedron 10))))
-
-(time (cad/save-x3d "output/sandbox/davinci-icosa-test-01.x3d"
-                    (davinci (ph/icosahedron 10))))
+;(time (cad/save-x3d "output/sandbox/davinci-tetra-test-01.x3d" (davinci (ph/tetrahedron 10))))
+;(time (cad/save-x3d "output/sandbox/davinci-hexa-test-01.x3d" (davinci (cu/cuboid -5 10))))
+(time (cad/save-x3d "output/sandbox/davinci-octo-test-01.x3d" (davinci (ph/octahedron 10))))
+;(time (cad/save-x3d "output/sandbox/davinci-dodeca-test-01.x3d" (davinci (ph/dodecahedron 10))))
+;(time (cad/save-x3d "output/sandbox/davinci-icosa-test-01.x3d" (davinci (ph/icosahedron 10))))
 
 
 ; ==============================================================================

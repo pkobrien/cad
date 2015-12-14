@@ -1,8 +1,8 @@
 (ns cad.geom
-  (:require [cad.core :as cad]
-            [thi.ng.geom.aabb :as ab]
+  (:require [thi.ng.geom.aabb :as ab]
             [thi.ng.geom.basicmesh :as bm]
             [thi.ng.geom.bezier :as bz]
+            [cad.core :as cad]
             [thi.ng.geom.circle :as ci]
             [thi.ng.geom.mesh.csg :as csg]
             [thi.ng.geom.cuboid :as cu]
@@ -14,6 +14,7 @@
             [thi.ng.math.core :as m :refer [*eps* HALF_PI PHI PI SQRT2 SQRT3 TWO_PI]]
             [thi.ng.geom.core.matrix :as mat :refer [M32 M44]]
             [thi.ng.geom.mesh.io :as mio]
+            [cad.ops :as op]
             [thi.ng.geom.mesh.ops :as ops]
             [thi.ng.geom.polygon :as pg]
             [thi.ng.geom.mesh.polyhedra :as ph]
@@ -57,12 +58,13 @@
 ;(time (cad/save-x3d "output/geom/hexahedron.x3d" (hexahedron)))
 
 (defn platonic-solids []
-  (let [th (-> ph/tetrahedron (p-mesh 10) (g/translate (vec3 0 0 0)))
-        oh (-> ph/octahedron (p-mesh 10) (g/translate (vec3 20 0 0)))
-        hh (-> (cu/cuboid -5 10) (g/as-mesh) (g/translate (vec3 40 0 0)))
-        ih (-> ph/icosahedron (p-mesh 10) (g/translate (vec3 60 0 0)))
-        dh (-> ph/dodecahedron (p-mesh 10) (g/translate (vec3 80 0 0)))
-        mesh (mesh-union [th oh hh ih dh])]
+  (let [th (-> ph/tetrahedron (p-mesh 12) (g/translate (vec3 0 0 0)))
+        hh (-> (cu/cuboid -5 10) (g/as-mesh) (g/translate (vec3 20 0 0)))
+        oh (-> ph/octahedron (p-mesh 8) (g/translate (vec3 40 0 0)))
+        dh (-> ph/dodecahedron (p-mesh 7) (g/translate (vec3 60 0 0)))
+        ih (-> ph/icosahedron (p-mesh 7.5) (g/translate (vec3 80 0 0)))
+        mesh (mesh-union [th oh hh ih dh])
+        mesh (op/colorize mesh)]
     mesh))
 
-;(time (cad/save-stl "output/geom/platonic-solids.stl" (platonic-solids)))
+(time (cad/save-x3d "output/sandbox/platonic-solids.x3d" (platonic-solids)))

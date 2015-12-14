@@ -3,6 +3,7 @@
   :url "https://github.com/pkobrien/cad"
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/data.xml "0.0.8"]
+                 [bardo "0.1.2-SNAPSHOT"]
                  [clj-time "0.11.0"]
                  [scad-clj "0.6.0-SNAPSHOT"]
                  [thi.ng/color "1.0.0"]

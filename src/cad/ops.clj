@@ -66,18 +66,27 @@
 
 (defn calc-face-area-map
   [{:keys [faces] :as mesh}]
-  (let [area-map (into {} (map (fn [face]
-                                 [face (apply gu/tri-area3 face)]) faces))]
+  (let [area (fn [face] [face (apply gu/tri-area3 face)])
+        area-map (into {} (map area faces))]
     (-> mesh
         (assoc-in [:face-area :map] area-map)
         (assoc-in [:face-area :min] (apply min (vals area-map)))
         (assoc-in [:face-area :max] (apply max (vals area-map))))))
 
+(defn calc-face-distance-map
+  [{:keys [faces] :as mesh} point]
+  (let [dist (fn [face] [face (g/dist (gu/centroid face) point)])
+        dist-map (into {} (map dist faces))]
+    (-> mesh
+        (assoc-in [:face-dist :map] dist-map)
+        (assoc-in [:face-dist :min] (apply min (vals dist-map)))
+        (assoc-in [:face-dist :max] (apply max (vals dist-map))))))
+
 (defn calc-vnp-map
   [{:keys [vertices] :as mesh}]
-  (let [np-f (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
+  (let [vnp (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
         vnp-map (into {} (for [vertex (keys vertices)]
-                           [vertex (into {} (map np-f (vertices vertex)))]))
+                           [vertex (into {} (map vnp (vertices vertex)))]))
         mesh (assoc mesh :vnp-map vnp-map)]
     mesh))
 
