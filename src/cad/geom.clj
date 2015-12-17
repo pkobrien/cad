@@ -14,7 +14,7 @@
             [thi.ng.math.core :as m :refer [*eps* HALF_PI PHI PI SQRT2 SQRT3 TWO_PI]]
             [thi.ng.geom.core.matrix :as mat :refer [M32 M44]]
             [thi.ng.geom.mesh.io :as mio]
-            [cad.ops :as op]
+            [cad.mesh.ops :as op]
             [thi.ng.geom.mesh.ops :as ops]
             [thi.ng.geom.polygon :as pg]
             [thi.ng.geom.mesh.polyhedra :as ph]

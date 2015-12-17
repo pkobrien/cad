@@ -1,4 +1,4 @@
-(ns cad.ops
+(ns cad.mesh.ops
   (:require [clojure.set]
             [thi.ng.dstruct.core :as d]
             [thi.ng.geom.core :as g]
@@ -9,23 +9,6 @@
 
 ; ==============================================================================
 ; Shared constants and functions
-
-(defn prn-fev
-  ([mesh]
-   (prn-fev mesh "Mesh"))
-  ([{:keys [faces edges vertices] :as mesh} msg]
-   (prn msg "F" (count faces) "E" (count edges) "V" (count vertices))
-   mesh))
-
-(defn prn-sides [mesh]
-  (prn "Sides-Count" (frequencies (map count (:faces mesh))))
-  mesh)
-
-(defmacro spy [x]
-  `(let [x# ~x]
-     (println "<=" '~x "=>")
-     (println x#)
-     x#))
 
 (defn abs [x]
   (Math/abs x))
@@ -47,16 +30,6 @@
   ([a b] (g/normalize (g/cross a b)))
   ([a b c] (vec3 (mapv (comp round2safe abs-zero)
                        (g/normalize (g/cross (g/- b a) (g/- c a)))))))
-
-(defn rep
-  "Repeat operation f on mesh n times."
-  [mesh f n]
-  (nth (iterate f mesh) n))
-
-(defn seed->mesh
-  "Returns a mesh for a seed collection of vertices."
-  [seed]
-  (g/into (gm/gmesh) seed))
 
 (defn calc-vertex
   "Returns a vertex at height distance from face-point along the face normal."
@@ -250,14 +223,18 @@
 (defn colorize
   "Returns mesh with face colors, defaults to color based on face normal."
   ([mesh]
-   (let [get-color (fn [mesh face]
-                     (let [[r g b] (mapv #(Math/abs %) (g/face-normal mesh face))
-                           alpha 1.0]
-                       [r g b alpha]))]
-     (colorize mesh get-color)))
-  ([{:keys [faces] :as mesh} get-color]
-   (let [mesh (compute-face-normals mesh)
-         fcolors (into {} (for [face faces] [face (get-color mesh face)]))
+   (let [get-f-color (fn [mesh]
+                       (let [mesh (compute-face-normals mesh)
+                             get-fc (fn [mesh face]
+                                      (let [normal (g/face-normal mesh face)
+                                            [r g b] (mapv abs normal)
+                                            alpha 1.0]
+                                        [r g b alpha]))]
+                         [mesh get-fc]))]
+     (colorize mesh get-f-color)))
+  ([{:keys [faces] :as mesh} get-f-color]
+   (let [[mesh get-fc] (get-f-color mesh)
+         fcolors (into {} (for [face faces] [face (get-fc mesh face)]))
          mesh (assoc mesh :fcolors fcolors)]
      mesh)))
 
@@ -292,6 +269,11 @@
                                 (mapv #(conj % vf-vert) vf-edges))))]
     (->> (concat e-faces f-faces v-faces)
          (g/into (g/clear* mesh)))))
+
+(defn rep
+  "Repeat operation f on mesh n times."
+  [mesh f n]
+  (nth (iterate f mesh) n))
 
 (defn skeletonize
   "Return mesh with all the flesh removed."
