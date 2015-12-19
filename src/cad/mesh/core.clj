@@ -55,12 +55,12 @@
 
 (defn dodeca
   ([]
-    dodeca 7)
+   (dodeca 7))
   ([scale]
    (-> (ph/dodecahedron scale) (seed->mesh))))
 
 (defn icosa
   ([]
-    icosa 7.5)
+   (icosa 7.5))
   ([scale]
    (-> (ph/icosahedron scale) (seed->mesh))))

@@ -31,12 +31,6 @@
   ([a b c] (vec3 (mapv (comp round2safe abs-zero)
                        (g/normalize (g/cross (g/- b a) (g/- c a)))))))
 
-(defn calc-vertex
-  "Returns a vertex at height distance from face-point along the face normal."
-  [face & {:keys [point height] :or {height 0}}]
-  (let [point (or point (gu/centroid face))]
-    (-> (take 3 face) (ortho-normal) (g/* height) (g/+ point))))
-
 (defn calc-face-area-map
   [{:keys [faces] :as mesh}]
   (let [area (fn [face] [face (apply gu/tri-area3 face)])
@@ -105,29 +99,47 @@
 
 (defn face-edge-neighbors
   "Returns a set of faces that neighbor one of the given face's edges."
-  [mesh face]
-  (let [edge-map (:edges mesh)
-        faces (into #{} (mapcat (fn [edge]
-                                  (edge-map (set edge)))) (face-edges face))
+  [{:keys [edges]} face]
+  (let [faces (into #{} (mapcat (fn [edge] (edges (set edge)))) (face-edges face))
         faces (clojure.set/difference faces #{face})]
     faces))
 
+(defn face-vertex-neighbors
+  "Returns a set of faces that share one of the given face's vertices."
+  [{:keys [vertices]} face]
+  (let [faces (into #{} (mapcat (fn [vertex] (map :f (vertices vertex))) face))
+        faces (clojure.set/difference faces #{face})]
+    faces))
+
+(defn face-vertex-only-neighbors
+  "Returns a set of faces that share one of the given face's vertices but do
+   not share any edges."
+  [mesh face]
+  (clojure.set/difference (face-vertex-neighbors mesh face)
+                          (face-edge-neighbors mesh face)))
+
+(defn get-vertex
+  "Returns a vertex at height distance from face-point along the face normal."
+  [face & {:keys [point height] :or {height 0}}]
+  (let [point (or point (gu/centroid face))]
+    (-> (take 3 face) (ortho-normal) (g/* height) (g/+ point))))
+
 (defn get-f-point-centroid
   [mesh face]
-  (calc-vertex face))
+  (get-vertex face))
 
 (defn get-v-height
   "Returns a function that returns a vertex based on the given height."
   [height]
   (fn [mesh face]
-    (calc-vertex face :height height)))
+    (get-vertex face :height height)))
 
 (defn get-v-edge-count-height
   "Returns a function that returns a vertex based on the number of face sides."
   [edge-count-height-map]
   (fn [mesh face]
     (if-let [height (edge-count-height-map (count face))]
-      (calc-vertex face :height height))))
+      (get-vertex face :height height))))
 
 (defn vertex-edges
   "Returns a vector of edges for a vertex in ccw order."
