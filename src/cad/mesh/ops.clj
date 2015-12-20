@@ -4,6 +4,7 @@
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
+            [thi.ng.geom.triangle :as tr]
             [thi.ng.geom.core.vector :as v :refer [vec2 vec3]]))
 
 
@@ -40,7 +41,16 @@
         (assoc-in [:face-area :min] (apply min (vals area-map)))
         (assoc-in [:face-area :max] (apply max (vals area-map))))))
 
-(defn calc-face-distance-map
+(defn calc-face-circ-map
+  [{:keys [faces] :as mesh}]
+  (let [circ (fn [face] [face (g/circumference (apply tr/triangle3 face))])
+        circ-map (into {} (map circ faces))]
+    (-> mesh
+        (assoc-in [:face-circ :map] circ-map)
+        (assoc-in [:face-circ :min] (apply min (vals circ-map)))
+        (assoc-in [:face-circ :max] (apply max (vals circ-map))))))
+
+(defn calc-face-dist-map
   [{:keys [faces] :as mesh} point]
   (let [dist (fn [face] [face (g/dist (gu/centroid face) point)])
         dist-map (into {} (map dist faces))]

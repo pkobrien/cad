@@ -154,12 +154,13 @@
                    :thickness 1
                    :get-f-factor (fn [_ face] (when (original-faces face) 0.1)))
                  (op/rep op/catmull-clark 3)
-                 (op/tess)
+                 ;(op/tess)
+                 (op/kis)
                  ;(op/colorize)
-                 (op/colorize mc/area-distance)
-                 (op/rep #(op/colorize % mc/blend-edge-neighbors) 1)
-                 (op/rep #(op/colorize % mc/blend-vertex-neighbors) 1)
-                 (op/rep #(op/colorize % mc/blend-vertex-only-neighbors) 1)
+                 (op/colorize mc/kitchen-sink)
+                 ;(op/rep #(op/colorize % mc/blend-edge-neighbors) 1)
+                 ;(op/rep #(op/colorize % mc/blend-vertex-neighbors) 3)
+                 ;(op/rep #(op/colorize % mc/blend-vertex-only-neighbors) 3)
                  (mm/prn-fev "Final"))]
     mesh))
 
@@ -330,7 +331,7 @@
 
                  (op/tess) (mm/prn-fev "Tess")
 
-                 (op/colorize mc/area-distance)
+                 (op/colorize mc/kitchen-sink)
                  (op/rep #(op/colorize % mc/blend-edge-neighbors) 1)
                  (mm/prn-fev "Final"))]
     mesh))

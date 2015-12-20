@@ -11,6 +11,17 @@
 ; ==============================================================================
 ; Face Color Functions
 
+(defn new-01 [mesh]
+  (let [mesh (op/compute-face-normals mesh)
+        fc (fn [mesh face]
+             (let [[x y z] (mapv op/abs (g/face-normal mesh face))
+                   hue (min x y z)
+                   sat (max x y z)
+                   val (- 1.0 (max x y z))
+                   color (col/as-rgba (col/hsva hue sat val 1.0))]
+               @color))]
+    [mesh fc]))
+
 (defn template [mesh]
   (let [mesh (op/compute-face-normals mesh)
         fc (fn [mesh face]
@@ -21,8 +32,6 @@
 (defn hsva [hue sat val alpha]
   (let [color @(col/as-rgba (col/hsva hue sat val alpha))]
     (fn [mesh] [mesh (fn [_ _] color)])))
-
-;(op/colorize (mc/hsva 0.25 0.5 0.5 1.0))
 
 (defn abs-normal [mesh]
   (let [mesh (op/compute-face-normals mesh)
@@ -151,38 +160,41 @@
                @color))]
     [mesh fc]))
 
-(defn area-distance [mesh]
+(defn kitchen-sink [mesh]
   (let [mesh-centroid (g/centroid mesh)
         mesh (op/calc-face-area-map mesh)
-        mesh (op/calc-face-distance-map mesh mesh-centroid)
+        mesh (op/calc-face-circ-map mesh)
+        mesh (op/calc-face-dist-map mesh mesh-centroid)
         mesh (op/compute-face-normals mesh)
+        min-area (get-in mesh [:face-area :min])
+        max-area (get-in mesh [:face-area :max])
+        min-circ (get-in mesh [:face-circ :min])
+        max-circ (get-in mesh [:face-circ :max])
+        min-dist (get-in mesh [:face-dist :min])
+        max-dist (get-in mesh [:face-dist :max])
         fc (fn [mesh face]
              (let [[x y z] (mapv op/abs (g/face-normal mesh face))
                    delta (- (max x y z) (min x y z))
                    face-area (get-in mesh [:face-area :map face])
-                   face-area-mod10 (mod (* 10 face-area) 1)
-                   min-area (get-in mesh [:face-area :min])
-                   max-area (get-in mesh [:face-area :max])
+                   norm-area (m/map-interval face-area min-area max-area 0.0 1.0)
+                   area-mod1 (mod (* 10 norm-area) 1)
+                   face-circ (get-in mesh [:face-circ :map face])
+                   norm-circ (m/map-interval face-circ min-circ max-circ 0.0 1.0)
                    face-dist (get-in mesh [:face-dist :map face])
-                   min-dist (get-in mesh [:face-dist :min])
-                   max-dist (get-in mesh [:face-dist :max])
-                   hue (m/map-interval face-area min-area max-area 0.0 1.0)
-                   ;hue (m/map-interval face-dist min-dist max-dist 0.5 1.0)
-                   ;hue (m/map-interval face-area-mod10 0.0 1.0 0.8 0.9)
-                   ;sat (m/map-interval face-dist min-dist max-dist 0.75 0.25)
-                   sat (m/map-interval delta 0.0 1.0 0.1 0.9)
-                   val (m/map-interval face-area min-area max-area 0.8 0.2)
-                   color (col/as-rgba (col/hsva hue sat val 1.0))]
-               @color))]
-    [mesh fc]))
-
-(defn new-01 [mesh]
-  (let [mesh (op/compute-face-normals mesh)
-        fc (fn [mesh face]
-             (let [[x y z] (mapv op/abs (g/face-normal mesh face))
-                   hue (min x y z)
-                   sat (max x y z)
-                   val (- 1.0 (max x y z))
-                   color (col/as-rgba (col/hsva hue sat val 1.0))]
+                   norm-dist (m/map-interval face-dist min-dist max-dist 0.0 1.0)
+                   hue 1.0
+                   sat 1.0
+                   val 1.0
+                   hue (m/map-interval (+ norm-area norm-circ norm-dist) 0.0 3.0 1.0 0.8)
+                   hue (m/map-interval (+ norm-area norm-dist) 0.0 2.0 1.0 0.8)
+                   hue (m/map-interval (+ norm-circ norm-dist) 0.0 2.0 1.0 0.6)
+                   hue (m/map-interval (+ area-mod1 norm-circ norm-dist) 0.0 3.0 1.0 0.0)
+                   sat (m/map-interval norm-area 0.0 1.0 0.4 1.0)
+                   ;sat (m/map-interval (+ norm-area x) 0.0 2.0 0.4 1.0)
+                   val (m/map-interval norm-area 0.0 1.0 0.4 1.0)
+                   color (col/as-rgba (col/hsva hue sat val 1.0))
+                   comp? (odd? (Math/round (* 10 (+ delta))))
+                   comp? false
+                   color (if comp? (col/complementary color) color)]
                @color))]
     [mesh fc]))
