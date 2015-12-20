@@ -1,5 +1,6 @@
 (ns cad.sandbox
   (:require [cad.core :as cad]
+            [clisk.live :as clisk]
             [thi.ng.geom.cuboid :as cu]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
@@ -153,14 +154,15 @@
                  (op/skeletonize
                    :thickness 1
                    :get-f-factor (fn [_ face] (when (original-faces face) 0.1)))
-                 (op/rep op/catmull-clark 3)
+                 (op/rep op/catmull-clark 4)
                  ;(op/tess)
                  (op/kis)
                  ;(op/colorize)
-                 (op/colorize mc/kitchen-sink)
+                 ;(op/colorize mc/kitchen-sink)
                  ;(op/rep #(op/colorize % mc/blend-edge-neighbors) 1)
                  ;(op/rep #(op/colorize % mc/blend-vertex-neighbors) 3)
                  ;(op/rep #(op/colorize % mc/blend-vertex-only-neighbors) 3)
+                 (op/colorize-clisk clisk/vnoise)
                  (mm/prn-fev "Final"))]
     mesh))
 

@@ -1,5 +1,6 @@
 (ns cad.mesh.ops
   (:require [clojure.set]
+            [clisk.live :as clisk]
             [thi.ng.dstruct.core :as d]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
@@ -258,6 +259,15 @@
    (let [[mesh get-fc] (get-f-color mesh)
          fcolors (into {} (for [face faces] [face (get-fc mesh face)]))
          mesh (assoc mesh :fcolors fcolors)]
+     mesh)))
+
+(defn colorize-clisk
+  "Returns mesh with face colors computed using clisk."
+  ([{:keys [faces] :as mesh} colourer]
+   (let [sampler (clisk/sampler (clisk/node colourer))
+         clisk-colour-fn (fn [[x y z]] (sampler [x y z 0]))
+         fcolours (into {} (for [face faces] [face (clisk-colour-fn (gu/centroid face))]))
+         mesh (assoc mesh :fcolors fcolours)]
      mesh)))
 
 (defn complexify
