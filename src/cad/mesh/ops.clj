@@ -1,6 +1,5 @@
 (ns cad.mesh.ops
   (:require [clojure.set]
-            [clisk.live :as clisk]
             [thi.ng.dstruct.core :as d]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
@@ -33,9 +32,28 @@
   ([a b c] (vec3 (mapv (comp round2safe abs-zero)
                        (g/normalize (g/cross (g/- b a) (g/- c a)))))))
 
+(defn face-edges
+  "Returns a lazy seq of edges for a face."
+  [face]
+  (let [face (vec face)]
+    (partition 2 1 (conj face (first face)))))
+
+(defn face-loop-triples
+  "Takes a mesh face (vector of points) and returns lazyseq of successive
+  point triples: [prev curr next]"
+  [face]
+  (let [face (vec face)]
+    (partition 3 1 (cons (peek face) (conj face (first face))))))
+
 (defn calc-face-area-map
   [{:keys [faces] :as mesh}]
-  (let [area (fn [face] [face (apply gu/tri-area3 face)])
+  (let [poly-area (fn [face]
+                    (let [cent (gu/centroid face)]
+                      (reduce + (map (fn [[v1 v2]] (gu/tri-area3 cent v1 v2))
+                                     (face-edges face)))))
+        area (fn [face] [face (if (= 3 (count face))
+                                (apply gu/tri-area3 face)
+                                (poly-area face))])
         area-map (into {} (map area faces))]
     (-> mesh
         (assoc-in [:face-area :map] area-map)
@@ -94,19 +112,6 @@
         (assoc mesh
           :normals (persistent! norms)
           :vnormals (persistent! vnorms))))))
-
-(defn face-edges
-  "Returns a lazy seq of edges for a face."
-  [face]
-  (let [face (vec face)]
-    (partition 2 1 (conj face (first face)))))
-
-(defn face-loop-triples
-  "Takes a mesh face (vector of points) and returns lazyseq of successive
-  point triples: [prev curr next]"
-  [face]
-  (let [face (vec face)]
-    (partition 3 1 (cons (peek face) (conj face (first face))))))
 
 (defn face-edge-neighbors
   "Returns a set of faces that neighbor one of the given face's edges."
@@ -261,15 +266,6 @@
          mesh (assoc mesh :fcolors fcolors)]
      mesh)))
 
-(defn colorize-clisk
-  "Returns mesh with face colors computed using clisk."
-  ([{:keys [faces] :as mesh} colourer]
-   (let [sampler (clisk/sampler (clisk/node colourer))
-         clisk-colour-fn (fn [[x y z]] (sampler [x y z 0]))
-         fcolours (into {} (for [face faces] [face (clisk-colour-fn (gu/centroid face))]))
-         mesh (assoc mesh :fcolors fcolours)]
-     mesh)))
-
 (defn complexify
   "Symetrical edge smoothing while mostly maintaining bounding box dimensions."
   [{:keys [faces edges vertices] :as mesh} & {:keys [f-factor v-factor]
@@ -282,8 +278,7 @@
         e-faces (for [edge (keys edges)]
                   (let [[v1 v2] (sort (vec edge))
                         f1 (get-in mesh [:vnp-map v1 v2 :face])
-                        f2 (first (for [face (edges edge)
-                                        :when (not= face f1)] face))
+                        f2 (get-in mesh [:vnp-map v2 v1 :face])
                         va (get-in fv-map [f1 v2])
                         vb (get-in fv-map [f1 v1])
                         vc (get-in fv-map [f2 v1])
@@ -292,13 +287,13 @@
         f-faces (for [face faces]
                   (for [vert face]
                     (get-in fv-map [face vert])))
-        v-faces (mapcat vec (for [vert (keys vertices)]
-                              (let [vf-verts (mapv #(get-in fv-map [% vert])
-                                                   (vertex-faces mesh vert))
-                                    vf-centroid (gu/centroid vf-verts)
-                                    vf-vert (g/mix vf-centroid vert v-factor)
-                                    vf-edges (partition 2 1 (conj vf-verts (first vf-verts)))]
-                                (mapv #(conj % vf-vert) vf-edges))))]
+        v->faces (fn [vert]
+                   (let [vf-verts (mapv #(get-in fv-map [% vert])
+                                        (vertex-faces mesh vert))
+                         vf-vert (g/mix (gu/centroid vf-verts) vert v-factor)
+                         vf-edges (face-edges vf-verts)]
+                     (mapv #(conj % vf-vert) vf-edges)))
+        v-faces (mapcat v->faces (keys vertices))]
     (->> (concat e-faces f-faces v-faces)
          (g/into (g/clear* mesh)))))
 
@@ -366,15 +361,15 @@
                     (mapv #(new-face % f-point e-points) (face-loop-triples face)))
         subdivide (fn [[face f-point] e-points]
                     (new-faces face f-point e-points))
-        v-replace (fn [face vert-map] (replace vert-map face))
         f-points (into {} (map (fn [face]
                                  [face (get-f-point mesh face)]) faces))
         e-points (into {} (map (fn [[edge e-faces]]
                                  [edge (get-e-point edge e-faces f-points)]) edges))
         v-points (into {} (map (fn [vertex]
-                                 [vertex (get-v-point mesh vertex)]) (keys vertices)))]
+                                 [vertex (get-v-point mesh vertex)]) (keys vertices)))
+        v-replace (partial replace v-points)]
     (->> (mapcat #(subdivide % e-points) f-points)
-         (map #(v-replace % v-points))
+         (map v-replace)
          (g/into (g/clear* mesh)))))
 
 

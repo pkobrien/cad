@@ -1,8 +1,10 @@
 (ns cad.mesh.color
   (:require [bardo.ease :as be]
             [bardo.interpolate :as bi]
+            [clisk.live :as clisk]
             [thi.ng.color.core :as col]
             [thi.ng.geom.core :as g]
+            [thi.ng.geom.core.utils :as gu]
             [thi.ng.math.core :as m]
             [cad.mesh.ops :as op]
             [cad.mesh.core :as mm]))
@@ -185,16 +187,25 @@
                    hue 1.0
                    sat 1.0
                    val 1.0
-                   hue (m/map-interval (+ norm-area norm-circ norm-dist) 0.0 3.0 1.0 0.8)
-                   hue (m/map-interval (+ norm-area norm-dist) 0.0 2.0 1.0 0.8)
-                   hue (m/map-interval (+ norm-circ norm-dist) 0.0 2.0 1.0 0.6)
+                   ;hue (m/map-interval (+ norm-area norm-circ norm-dist) 0.0 3.0 1.0 0.8)
+                   ;hue (m/map-interval (+ norm-area norm-dist) 0.0 2.0 1.0 0.8)
+                   ;hue (m/map-interval (+ norm-circ norm-dist) 0.0 2.0 1.0 0.6)
+                   ;hue (m/map-interval (+ area-mod1) 0.0 1.0 1.0 0.0)
                    hue (m/map-interval (+ area-mod1 norm-circ norm-dist) 0.0 3.0 1.0 0.0)
                    sat (m/map-interval norm-area 0.0 1.0 0.4 1.0)
                    ;sat (m/map-interval (+ norm-area x) 0.0 2.0 0.4 1.0)
                    val (m/map-interval norm-area 0.0 1.0 0.4 1.0)
                    color (col/as-rgba (col/hsva hue sat val 1.0))
-                   comp? (odd? (Math/round (* 10 (+ delta))))
+                   ;comp? (odd? (Math/round (* 10 (+ delta))))
                    comp? false
                    color (if comp? (col/complementary color) color)]
                @color))]
+    [mesh fc]))
+
+(defn clisk-sampler-vnoise [mesh]
+  (let [sampler (clisk/sampler (clisk/node clisk/vnoise))
+        fc (fn [_ face]
+             (let [[x y z] (gu/centroid face)
+                   color (sampler [x y z 0])]
+               color))]
     [mesh fc]))

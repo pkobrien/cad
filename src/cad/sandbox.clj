@@ -5,6 +5,7 @@
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
+            [thi.ng.math.core :as m]
             [cad.mesh.color :as mc]
             [cad.mesh.core :as mm]
             [cad.mesh.ops :as op]
@@ -158,49 +159,44 @@
                  ;(op/tess)
                  (op/kis)
                  ;(op/colorize)
-                 ;(op/colorize mc/kitchen-sink)
-                 ;(op/rep #(op/colorize % mc/blend-edge-neighbors) 1)
-                 ;(op/rep #(op/colorize % mc/blend-vertex-neighbors) 3)
-                 ;(op/rep #(op/colorize % mc/blend-vertex-only-neighbors) 3)
-                 (op/colorize-clisk clisk/vnoise)
+                 (op/colorize mc/kitchen-sink)
                  (mm/prn-fev "Final"))]
     mesh))
 
-(time (cad/save-x3d "output/sandbox/skel-01.x3d" (skel-01 (mm/octo 10))))
+;(time (cad/save-x3d "output/sandbox/skel-01.x3d" (skel-01 (mm/octo 10))))
 
-(defn skel-02 []
-  (-> (cu/cuboid -5 10)
-      ;(ph/dodecahedron 10)
-      (mm/seed->mesh)
-      (op/skeletonize :thickness 4 :get-f-factor (fn [_ _] 0.25))
-      (op/kis (op/get-v-edge-count-height {3 +0, 4 +0.2, 5 +0}))
-      (op/catmull-clark)
-      (op/kis (op/get-v-height -0.1))
-      (op/catmull-clark)
-      (op/tess)
-      (op/colorize)))
-
-;(time (cad/save-x3d "output/sandbox/skel-02.x3d" (skel-02)))
-
-(defn skel-03 []
-  (let [mesh (-> (cu/cuboid -5 10)
-                 (mm/seed->mesh))
-        original-faces (:faces mesh)
+(defn skel-03 [mesh]
+  (let [original-faces (:faces mesh)
+        windows #{(last original-faces)}
+        get-v (fn [mesh min-area height]
+                (let [fa-min (get-in mesh [:face-area :min])
+                      fa-max (get-in mesh [:face-area :max])]
+                  (fn [mesh face]
+                    (let [area (get-in mesh [:face-area :map face])
+                          norm-area (m/map-interval area fa-min fa-max 0.0 1.0)]
+                      (if (< norm-area min-area)
+                        (op/get-vertex face :height 0)
+                        (op/get-vertex face :height height))))))
+        kis (fn [mesh min-area height]
+              (let [mesh (op/calc-face-area-map mesh)
+                    mesh (op/kis mesh (get-v mesh min-area height))]
+                mesh))
         mesh (-> mesh
                  (op/skeletonize
                    :thickness 4
-                   :get-f-factor (fn [{:keys [faces]} face]
-                                   (when (= (last faces) face) 0.25)))
+                   :get-f-factor (fn [_ face] (when (windows face) 0.25)))
                  (op/skeletonize
                    :thickness 2
-                   :get-f-factor (fn [_ face]
-                                   (when (original-faces face) 0.25)))
+                   :get-f-factor (fn [_ face] (when (original-faces face) 0.1)))
                  (op/rep op/catmull-clark 3)
-                 (op/kis (op/get-v-height -0.05))
-                 (op/colorize mc/abs-normal-invert))]
+                 ;(op/kis)
+                 (kis 0.2 -0.05)
+                 ;(op/colorize mc/abs-normal-invert)
+                 (op/colorize mc/clisk-sampler-vnoise)
+                 (mm/prn-fev "Final"))]
     mesh))
 
-;(time (cad/save-x3d "output/sandbox/skel-03.x3d" (skel-03)))
+(time (cad/save-x3d "output/sandbox/skel-03.x3d" (skel-03 (mm/dodeca 20))))
 
 (defn skel-04 []
   (let [mesh (-> (cu/cuboid -5 10)
