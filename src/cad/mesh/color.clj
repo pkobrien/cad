@@ -202,8 +202,8 @@
                @color))]
     [mesh fc]))
 
-(defn clisk-sampler-vnoise [mesh]
-  (let [sampler (clisk/sampler (clisk/node clisk/vnoise))
+(defn clisk-sampler [colorer mesh]
+  (let [sampler (clisk/sampler (clisk/node colorer))
         fc (fn [_ face]
              (let [[x y z] (gu/centroid face)
                    color (sampler [x y z 0])]

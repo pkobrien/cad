@@ -191,16 +191,14 @@
                  (op/rep op/catmull-clark 3)
                  ;(op/kis)
                  (kis 0.2 -0.05)
-                 ;(op/colorize mc/abs-normal-invert)
-                 (op/colorize mc/clisk-sampler-vnoise)
+                 (op/colorize mc/abs-normal-invert)
                  (mm/prn-fev "Final"))]
     mesh))
 
-(time (cad/save-x3d "output/sandbox/skel-03.x3d" (skel-03 (mm/dodeca 20))))
+;(time (cad/save-x3d "output/sandbox/skel-03.x3d" (skel-03 (mm/dodeca 20))))
 
 (defn skel-04 []
-  (let [mesh (-> (cu/cuboid -5 10)
-                 (mm/seed->mesh))
+  (let [mesh (mm/hexa 10)
         [wf sf ff nf bf ef] (sort (:faces mesh))
         mesh (-> mesh
                  (op/skeletonize
@@ -211,12 +209,14 @@
                    :thickness 2
                    :get-f-factor (fn [_ face]
                                    (when (#{ef wf ff bf} face) 0.25)))
-                 (op/rep op/catmull-clark 3)
+                 (op/rep op/catmull-clark 2)
                  (op/tess)
-                 (op/colorize mc/abs-normal-invert))]
+                 ;(op/colorize mc/abs-normal-invert)
+                 (op/colorize (partial mc/clisk-sampler clisk/agate))
+                 (mm/prn-fev "Final"))]
     mesh))
 
-;(time (cad/save-x3d "output/sandbox/skel-04.x3d" (skel-04)))
+(time (cad/save-x3d "output/sandbox/skel-04.x3d" (skel-04)))
 
 (defn skel-05 []
   (let [mesh (-> (cu/cuboid -5 10)
