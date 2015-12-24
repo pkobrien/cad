@@ -1,25 +1,35 @@
 (ns cad.shapeways
   (:require [cad.core :as cad]
+            [thi.ng.color.core :as col]
             [thi.ng.geom.core :as g]
+            [thi.ng.math.core :as m]
             [cad.mesh.color :as mc]
             [cad.mesh.core :as mm]
             [cad.mesh.ops :as op]))
 
 
+(defn save [name mesh]
+  (let [path (str "output/shapeways/" name ".x3d")]
+    (cad/save-x3d path mesh)))
+
+
 ; ==============================================================================
 ; Designs uploaded to Shapeways
 
-(defn alien-spore []
+(defn spore []
   (-> (mm/dodeca 10)
       (op/rep op/ambo 3)
       (op/kis (op/get-v-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
       (op/tess)
-      (op/colorize mc/average-complementary-plus-normal)
-      (op/rep #(op/colorize % mc/blend-edge-neighbors) 3)
       (mm/prn-fev "Final")))
 
-;(time (cad/save-x3d "output/shapeways/alien-spore.x3d" (alien-spore)))
+(defn alien-spore []
+  (-> (spore)
+      (op/colorize (mc/alien))
+      (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 3)))
+
+;(time (save "alien-spore" (alien-spore)))
 
 (defn alien-skel []
   (let [mesh (-> (mm/dodeca 10)
@@ -35,71 +45,69 @@
                                      0.1)))
                  (op/rep op/catmull-clark 3)
                  (op/tess)
-                 (op/colorize mc/abs-normal-invert)
-                 (op/rep #(op/colorize % mc/blend-edge-neighbors) 1)
+                 (op/colorize (mc/normal-abs) (mc/cb col/invert))
+                 (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
                  (mm/prn-fev "Final"))]
     mesh))
 
-;(time (cad/save-x3d "output/shapeways/alien-skel.x3d" (alien-skel)))
+;(time (save "alien-skel" (alien-skel)))
 
 (defn hexa-kis-cc3-kis "http://shpws.me/L0c3" []
   (-> (mm/hexa 10)
       (op/kis (op/get-v-height 10))
       (op/rep op/catmull-clark 3)
       (op/kis (op/get-v-height -0.25))
-      (op/colorize mc/abs-normal)))
+      (op/colorize (mc/normal-abs))))
 
-;(time (cad/save-x3d "output/shapeways/hexa-kis-cc3-kis.x3d" (hexa-kis-cc3-kis)))
-
-(defn dodeca-ambo-kis "http://shpws.me/L2CZ" []
-  (-> (mm/dodeca 10)
-      (op/rep op/ambo 3)
-      (op/kis (op/get-v-edge-count-height {3 2.5, 5 -10}))
-      (op/rep op/catmull-clark 3)
-      (g/tessellate) ;(op/tess)
-      (op/colorize mc/average-complementary-plus-normal)))
-
-;(time (cad/save-x3d "output/shapeways/dodeca-ambo-kis.x3d" (dodeca-ambo-kis)))
+;(time (save "hexa-kis-cc3-kis" (hexa-kis-cc3-kis)))
 
 (defn plutonic [mesh]
   (-> mesh
       (op/complexify :f-factor 0.5 :v-factor 0.25)
-      (op/skeletonize :thickness 0.5
+      (op/skeletonize :thickness 0.4
                       :get-f-factor (fn [_ face]
                                       (when (#{4} (count face)) 0.25)))
       (op/rep op/catmull-clark 3)
       (op/tess)
-      (op/colorize mc/area-mod10)))
+      (op/colorize (mc/area) (mc/cb #(-> % (col/rotate-hue 60) (col/invert))))))
+
+;(time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
 
 (comment
-  (time (cad/save-x3d "output/shapeways/plutonic-tetra.x3d"
-                      (plutonic (mm/tetra 10))))
-  (time (cad/save-x3d "output/shapeways/plutonic-hexa.x3d"
-                      (plutonic (mm/hexa 10))))
-  (time (cad/save-x3d "output/shapeways/plutonic-octo.x3d"
-                      (plutonic (mm/octo 10))))
-  (time (cad/save-x3d "output/shapeways/plutonic-dodeca.x3d"
-                      (plutonic (mm/dodeca 10))))
-  (time (cad/save-x3d "output/shapeways/plutonic-icosa.x3d"
-                      (plutonic (mm/icosa 10))))
+  (time (save "plutonic-2-tetra" (plutonic (mm/tetra 12))))
+  (time (save "plutonic-2-hexa" (plutonic (mm/hexa 10))))
+  (time (save "plutonic-2-octo" (plutonic (mm/octo 8))))
+  (time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
+  (time (save "plutonic-2-icosa" (plutonic (mm/icosa 7.5))))
   )
 
-(defn rainkis [mesh height]
+(defn smooth-kis [mesh height]
   (-> mesh
       (op/kis (op/get-v-height height))
       (op/rep op/catmull-clark 3)
-      (op/kis (op/get-v-height -0.25))
-      (op/colorize mc/abs-normal)))
+      (op/kis (op/get-v-height -0.25))))
+
+(defn rainkis [mesh height]
+  (-> mesh
+      (smooth-kis height)
+      (op/colorize (mc/normal-abs))))
 
 (comment
-  (time (cad/save-x3d "output/shapeways/rainkis-tetra.x3d"
-                      (rainkis (mm/tetra 12) 12)))
-  (time (cad/save-x3d "output/shapeways/rainkis-hexa.x3d"
-                      (rainkis (mm/hexa 10) 10)))
-  (time (cad/save-x3d "output/shapeways/rainkis-octo.x3d"
-                      (rainkis (mm/octo 8) 8)))
-  (time (cad/save-x3d "output/shapeways/rainkis-dodeca.x3d"
-                      (rainkis (mm/dodeca 7) 5)))
-  (time (cad/save-x3d "output/shapeways/rainkis-icosa.x3d"
-                      (rainkis (mm/icosa 7.5) 5)))
+  (time (save "rainkis-tetra" (rainkis (mm/tetra 12) 12)))
+  (time (save "rainkis-hexa" (rainkis (mm/hexa 10) 10)))
+  (time (save "rainkis-octo" (rainkis (mm/octo 8) 8)))
+  (time (save "rainkis-dodeca" (rainkis (mm/dodeca 7) 5)))
+  (time (save "rainkis-icosa" (rainkis (mm/icosa 7.5) 5)))
+  )
+
+(defn custom [mesh]
+  (-> mesh
+      (op/colorize (mc/normal-abs) (mc/cb col/complementary))
+      ))
+
+;(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (mm/dodeca 7) 5))))
+
+(comment
+  (time (def mesh-skd (smooth-kis (mm/dodeca 7) 5)))
+  (time (save "smooth-kis-custom-dodeca" (custom mesh-skd)))
   )

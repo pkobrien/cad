@@ -259,10 +259,15 @@
                                             alpha 1.0]
                                         [r g b alpha]))]
                          [mesh get-fc]))]
-     (colorize mesh get-f-color)))
-  ([{:keys [faces] :as mesh} get-f-color]
+     (colorize mesh get-f-color nil)))
+  ([mesh get-f-color]
+   (colorize mesh get-f-color nil))
+  ([{:keys [faces] :as mesh} get-f-color cb]
    (let [[mesh get-fc] (get-f-color mesh)
-         fcolors (into {} (for [face faces] [face (get-fc mesh face)]))
+         fcolors (into {} (for [face faces]
+                            (let [color (get-fc mesh face)
+                                  color (if cb (cb color) color)]
+                              [face color])))
          mesh (assoc mesh :fcolors fcolors)]
      mesh)))
 
