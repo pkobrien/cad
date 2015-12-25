@@ -45,7 +45,7 @@
                                      0.1)))
                  (op/rep op/catmull-clark 3)
                  (op/tess)
-                 (op/colorize (mc/normal-abs) (mc/cb col/invert))
+                 (op/colorize (mc/normal-abs-rgb) (mc/cb col/invert))
                  (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
                  (mm/prn-fev "Final"))]
     mesh))
@@ -57,7 +57,7 @@
       (op/kis (op/get-v-height 10))
       (op/rep op/catmull-clark 3)
       (op/kis (op/get-v-height -0.25))
-      (op/colorize (mc/normal-abs))))
+      (op/colorize (mc/normal-abs-rgb))))
 
 ;(time (save "hexa-kis-cc3-kis" (hexa-kis-cc3-kis)))
 
@@ -85,12 +85,13 @@
   (-> mesh
       (op/kis (op/get-v-height height))
       (op/rep op/catmull-clark 3)
-      (op/kis (op/get-v-height -0.25))))
+      (op/kis (op/get-v-height -0.25))
+      (mm/prn-fev "Final")))
 
 (defn rainkis [mesh height]
   (-> mesh
       (smooth-kis height)
-      (op/colorize (mc/normal-abs))))
+      (op/colorize (mc/normal-abs-rgb))))
 
 (comment
   (time (save "rainkis-tetra" (rainkis (mm/tetra 12) 12)))
@@ -102,10 +103,11 @@
 
 (defn custom [mesh]
   (-> mesh
-      (op/colorize (mc/normal-abs) (mc/cb col/complementary))
+      ;(op/colorize (mc/normal-abs) (mc/cb col/complementary))
+      (op/colorize (mc/normal-sum-mod1-hue))
       ))
 
-;(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (mm/dodeca 7) 5))))
+(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (mm/dodeca 7) 5))))
 
 (comment
   (time (def mesh-skd (smooth-kis (mm/dodeca 7) 5)))
