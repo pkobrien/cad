@@ -111,8 +111,7 @@
                (let [[x y z] (mapv #(m/map-interval % -1.0 1.0 0.0 1.0)
                                    (g/face-normal mesh face))
                      color (col/as-rgba (col/cie1931 [x y z 1.0]))]
-                 ;@color ; Bug in col/cie1931 returns vector instead of RGBA type.
-                 color))]
+                 @color))]
       [mesh fc])))
 
 (defn normal-abs-cie1931 []
@@ -121,8 +120,7 @@
           fc (fn [mesh face]
                (let [[x y z] (mapv op/abs (g/face-normal mesh face))
                      color (col/as-rgba (col/cie1931 [x y z 1.0]))]
-                 ;@color ; Bug in col/cie1931 returns vector instead of RGBA type.
-                 color))]
+                 @color))]
       [mesh fc])))
 
 (defn normal-sum-hue []
@@ -130,7 +128,9 @@
     (let [mesh (op/compute-face-normals mesh)
           fc (fn [mesh face]
                (let [[x y z] (g/face-normal mesh face)
-                     hue (-> (+ x y z) (m/map-interval -1.75 1.75 0.0 1.0))
+                     max-sum (* 3 (Math/sqrt (/ 1 3)))
+                     min-sum (- max-sum)
+                     hue (-> (+ x y z) (m/map-interval min-sum max-sum 0.0 1.0))
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
