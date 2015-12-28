@@ -1,8 +1,6 @@
 (ns cad.shapeways
   (:require [cad.core :as cad]
             [thi.ng.color.core :as col]
-            [thi.ng.geom.core :as g]
-            [thi.ng.math.core :as m]
             [cad.mesh.color :as mc]
             [cad.mesh.core :as mm]
             [cad.mesh.ops :as op]))
@@ -19,7 +17,7 @@
 (defn spore []
   (-> (mm/dodeca 10)
       (op/rep op/ambo 3)
-      (op/kis (op/get-v-edge-count-height {3 2.5, 5 -10}))
+      (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
       (op/tess)
       (mm/prn-fev "Final")))
@@ -36,7 +34,7 @@
                  (op/complexify :f-factor 0.2 :v-factor 0.2))
         complex-faces (:faces mesh)
         mesh (-> mesh
-                 (op/kis (op/get-v-edge-count-height {5 -6}))
+                 (op/kis (mm/get-point-at-edge-count-height {5 -6}))
                  (op/skeletonize
                    :thickness 1
                    :get-f-factor (fn [mesh face]
@@ -54,9 +52,9 @@
 
 (defn hexa-kis-cc3-kis "http://shpws.me/L0c3" []
   (-> (mm/hexa 10)
-      (op/kis (op/get-v-height 10))
+      (op/kis (mm/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
-      (op/kis (op/get-v-height -0.25))
+      (op/kis (mm/get-point-at-height -0.25))
       (op/colorize (mc/normal-abs-rgb))))
 
 ;(time (save "hexa-kis-cc3-kis" (hexa-kis-cc3-kis)))
@@ -76,16 +74,16 @@
 (comment
   (time (save "plutonic-2-tetra" (plutonic (mm/tetra 12))))
   (time (save "plutonic-2-hexa" (plutonic (mm/hexa 10))))
-  (time (save "plutonic-2-octo" (plutonic (mm/octo 8))))
+  (time (save "plutonic-2-octa" (plutonic (mm/octa 8))))
   (time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
   (time (save "plutonic-2-icosa" (plutonic (mm/icosa 7.5))))
   )
 
 (defn smooth-kis [mesh height]
   (-> mesh
-      (op/kis (op/get-v-height height))
+      (op/kis (mm/get-point-at-height height))
       (op/rep op/catmull-clark 3)
-      (op/kis (op/get-v-height -0.25))
+      (op/kis (mm/get-point-at-height -0.25))
       (mm/prn-fev "Final")))
 
 (defn rainkis [mesh height]
@@ -96,7 +94,7 @@
 (comment
   (time (save "rainkis-tetra" (rainkis (mm/tetra 12) 12)))
   (time (save "rainkis-hexa" (rainkis (mm/hexa 10) 10)))
-  (time (save "rainkis-octo" (rainkis (mm/octo 8) 8)))
+  (time (save "rainkis-octa" (rainkis (mm/octa 8) 8)))
   (time (save "rainkis-dodeca" (rainkis (mm/dodeca 7) 5)))
   (time (save "rainkis-icosa" (rainkis (mm/icosa 7.5) 5)))
   )

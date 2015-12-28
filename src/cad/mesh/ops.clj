@@ -1,172 +1,24 @@
 (ns cad.mesh.ops
   (:require [clojure.set]
-            [thi.ng.dstruct.core :as d]
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
-            [cad.mesh.core :as mm]
-            [thi.ng.geom.triangle :as tr]
-            [thi.ng.geom.core.vector :as v :refer [vec2 vec3]]))
+            [cad.mesh.color :as mc]
+            [cad.mesh.core :as mm]))
 
 
 ; ==============================================================================
-; Shared constants and functions
+; General Operators
 
-(defn abs [x]
-  (Math/abs x))
+(defn rep
+  "Repeat operation f on mesh n times."
+  [mesh f n]
+  (nth (iterate f mesh) n))
 
-(defn abs-zero
-  [x]
-  (if (zero? x) 0.0 x))
-
-(defn round2
-  "Round a double to the given precision (number of significant digits)"
-  [precision d]
-  (let [factor (Math/pow 10 precision)]
-    (/ (Math/round (* d factor)) factor)))
-
-(def round2safe (partial round2 14))
-
-(defn ortho-normal
-  ([[a b c]] (ortho-normal a b c))
-  ([a b] (g/normalize (g/cross a b)))
-  ([a b c] (vec3 (mapv (comp round2safe abs-zero)
-                       (g/normalize (g/cross (g/- b a) (g/- c a)))))))
-
-(defn calc-face-area-map
-  [{:keys [faces] :as mesh}]
-  (let [poly-area (fn [face]
-                    (let [cent (gu/centroid face)]
-                      (reduce + (map (fn [[v1 v2]] (gu/tri-area3 cent v1 v2))
-                                     (mm/face-vert-pairs face)))))
-        area (fn [face] [face (if (= 3 (count face))
-                                (apply gu/tri-area3 face)
-                                (poly-area face))])
-        area-map (into {} (map area faces))]
-    (-> mesh
-        (assoc-in [:face-area :map] area-map)
-        (assoc-in [:face-area :min] (apply min (vals area-map)))
-        (assoc-in [:face-area :max] (apply max (vals area-map))))))
-
-(defn calc-face-circ-map
-  [{:keys [faces] :as mesh}]
-  (let [circ (fn [face] [face (g/circumference (apply tr/triangle3 face))])
-        circ-map (into {} (map circ faces))]
-    (-> mesh
-        (assoc-in [:face-circ :map] circ-map)
-        (assoc-in [:face-circ :min] (apply min (vals circ-map)))
-        (assoc-in [:face-circ :max] (apply max (vals circ-map))))))
-
-(defn calc-face-dist-map
-  [{:keys [faces] :as mesh} point]
-  (let [dist (fn [face] [face (g/dist (gu/centroid face) point)])
-        dist-map (into {} (map dist faces))]
-    (-> mesh
-        (assoc-in [:face-dist :map] dist-map)
-        (assoc-in [:face-dist :min] (apply min (vals dist-map)))
-        (assoc-in [:face-dist :max] (apply max (vals dist-map))))))
-
-(defn calc-vnp-map
-  [{:keys [vertices] :as mesh}]
-  (let [vnp (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
-        vnp-map (into {} (for [vertex (keys vertices)]
-                           [vertex (into {} (map vnp (vertices vertex)))]))
-        mesh (assoc mesh :vnp-map vnp-map)]
-    mesh))
-
-(defn compute-face-normals
+(defn tess
+  "Returns a tesselated mesh."
   [mesh]
-  (loop [norms (transient #{}), fnorms (transient {}), faces (:faces mesh)]
-    (if faces
-      (let [face (first faces)
-            [norms n] (d/index! norms (ortho-normal face))]
-        (recur norms (assoc! fnorms face n) (next faces)))
-      (assoc mesh
-        :normals (persistent! norms)
-        :fnormals (persistent! fnorms)))))
-
-(defn compute-vertex-normals
-  [mesh]
-  (let [{:keys [vertices normals fnormals] :as mesh} (if (seq (:fnormals mesh)) mesh (compute-face-normals mesh))
-        ntx (comp (map #(get fnormals %)) (distinct))]
-    (loop [norms (transient normals), vnorms (transient (hash-map)), verts (keys vertices)]
-      (if verts
-        (let [v (first verts)
-              [norms n] (->> (d/value-set :f vertices v)
-                             (transduce ntx g/+ v/V3)
-                             (g/normalize)
-                             (d/index! norms))]
-          (recur norms (assoc! vnorms v n) (next verts)))
-        (assoc mesh
-          :normals (persistent! norms)
-          :vnormals (persistent! vnorms))))))
-
-(defn face-edge-neighbors
-  "Returns a set of faces that neighbor one of the given face's edges."
-  [{:keys [edges]} face]
-  (let [faces (into #{} (mapcat (fn [edge] (edges (set edge)))) (mm/face-vert-pairs face))
-        faces (clojure.set/difference faces #{face})]
-    faces))
-
-(defn face-vertex-neighbors
-  "Returns a set of faces that share one of the given face's vertices."
-  [{:keys [vertices]} face]
-  (let [faces (into #{} (mapcat (fn [vertex] (map :f (vertices vertex))) face))
-        faces (clojure.set/difference faces #{face})]
-    faces))
-
-(defn face-vertex-only-neighbors
-  "Returns a set of faces that share one of the given face's vertices but do
-   not share any edges."
-  [mesh face]
-  (clojure.set/difference (face-vertex-neighbors mesh face)
-                          (face-edge-neighbors mesh face)))
-
-(defn get-vertex
-  "Returns a vertex at height distance from face-point along the face normal."
-  [face & {:keys [point height] :or {height 0}}]
-  (let [point (or point (gu/centroid face))]
-    (-> (take 3 face) (ortho-normal) (g/* height) (g/+ point))))
-
-(defn get-f-point-centroid
-  [mesh face]
-  (get-vertex face))
-
-(defn get-v-height
-  "Returns a function that returns a vertex based on the given height."
-  [height]
-  (fn [mesh face]
-    (get-vertex face :height height)))
-
-(defn get-v-edge-count-height
-  "Returns a function that returns a vertex based on the number of face sides."
-  [edge-count-height-map]
-  (fn [mesh face]
-    (if-let [height (edge-count-height-map (count face))]
-      (get-vertex face :height height))))
-
-(defn vertex-edges
-  "Returns a vector of edges for a vertex in ccw order."
-  [{:keys [vertices]} vertex]
-  (let [np-map (into {} (map (fn [{:keys [next prev]}]
-                               [next prev]) (vertices vertex)))
-        start (first (sort (keys np-map)))
-        verts (reduce (fn [acc _]
-                        (conj acc (np-map (last acc))))
-                      [start] (range (dec (count np-map))))
-        edges (mapv (fn [e-vert] [vertex e-vert]) verts)]
-    edges))
-
-(defn vertex-faces
-  "Returns a vector of faces for a vertex in ccw order."
-  [mesh vertex]
-  (let [np-map (get-in mesh [:vnp-map vertex])
-        start (first (sort (keys np-map)))
-        verts (reduce (fn [acc _]
-                        (conj acc (get-in np-map [(last acc) :prev])))
-                      [start] (range (dec (count np-map))))
-        faces (mapv (fn [vert] (get-in np-map [vert :face])) verts)]
-    faces))
+  (mm/gmesh (into [] (comp (map gu/tessellate-3) cat) (g/faces mesh))))
 
 
 ; ==============================================================================
@@ -179,7 +31,7 @@
         f-faces (map (fn [face]
                        (map gu/centroid (mm/face-vert-pairs face))) faces)
         v-faces (map (fn [vert]
-                       (map gu/centroid (vertex-edges mesh vert))) verts)
+                       (map gu/centroid (mm/vertex-edges mesh vert))) verts)
         faces (concat f-faces v-faces)]
     (mm/gmesh faces)))
 
@@ -191,7 +43,7 @@
 (defn kis
   "Returns mesh with each n-sided face divided into n triangles."
   ([mesh]
-   (kis mesh get-f-point-centroid))
+   (kis mesh mm/get-face-centroid))
   ([{:keys [faces] :as mesh} get-f-point]
    (let [new-face (fn [[p c n] f-point]
                     [c n f-point])
@@ -207,18 +59,20 @@
 (defn ortho
   "Returns mesh with each n-sided face divided into n quadrilaterals."
   ([mesh]
-   (ortho mesh get-f-point-centroid))
+   (ortho mesh mm/get-face-centroid))
   ([{:keys [faces edges] :as mesh} get-f-point]
    (let [get-e-point (fn [edge] (gu/centroid (vec edge)))
          new-face (fn [[p c n] f-point e-points]
                     [(e-points #{p c}) c (e-points #{c n}) f-point])
          new-faces (fn [face f-point e-points]
-                     (mapv #(new-face % f-point e-points) (mm/face-vert-triples face)))
+                     (mapv #(new-face % f-point e-points)
+                           (mm/face-vert-triples face)))
          subdivide (fn [face e-points]
                      (if-let [f-point (get-f-point mesh face)]
                        (new-faces face f-point e-points)
                        (let [edged-f (vec (mapcat (fn [[c n]]
-                                                    [c (e-points #{c n})]) (mm/face-vert-pairs face)))]
+                                                    [c (e-points #{c n})])
+                                                  (mm/face-vert-pairs face)))]
                          [edged-f])))
          e-points (into {} (map (fn [edge]
                                   [edge (get-e-point edge)]) (keys edges)))
@@ -234,20 +88,12 @@
 
 
 ; ==============================================================================
-; Other Operators: Shell/Hollow/Carve/Skeletonize
+; Other Operators
 
 (defn colorize
   "Returns mesh with face colors, defaults to color based on face normal."
   ([mesh]
-   (let [get-f-color (fn [mesh]
-                       (let [mesh (compute-face-normals mesh)
-                             get-fc (fn [mesh face]
-                                      (let [normal (g/face-normal mesh face)
-                                            [r g b] (mapv abs normal)
-                                            alpha 1.0]
-                                        [r g b alpha]))]
-                         [mesh get-fc]))]
-     (colorize mesh get-f-color nil)))
+   (colorize mesh (mc/normal-abs-rgb) nil))
   ([mesh get-f-color]
    (colorize mesh get-f-color nil))
   ([{:keys [faces] :as mesh} get-f-color cb]
@@ -261,9 +107,9 @@
 
 (defn complexify
   "Symetrical edge smoothing while mostly maintaining bounding box dimensions."
-  [{:keys [faces edges vertices] :as mesh} & {:keys [f-factor v-factor]
-                                              :or {f-factor 0.5 v-factor 0.25}}]
-  (let [mesh (calc-vnp-map mesh)
+  [{:keys [faces edges vertices] :as mesh}
+   & {:keys [f-factor v-factor] :or {f-factor 0.5 v-factor 0.25}}]
+  (let [mesh (mm/calc-vnp-map mesh)
         offset (fn [vert face] (g/mix vert (gu/centroid face) f-factor))
         fv-map (into {} (for [face faces]
                           [face (into {} (for [vert face]
@@ -282,7 +128,7 @@
                     (get-in fv-map [face vert])))
         v->faces (fn [vert]
                    (let [vf-verts (mapv #(get-in fv-map [% vert])
-                                        (vertex-faces mesh vert))
+                                        (mm/vertex-faces mesh vert))
                          vf-vert (g/mix (gu/centroid vf-verts) vert v-factor)
                          vf-edges (mm/face-vert-pairs vf-verts)]
                      (mapv #(conj % vf-vert) vf-edges)))
@@ -290,18 +136,13 @@
         faces (concat e-faces f-faces v-faces)]
     (mm/gmesh faces)))
 
-(defn rep
-  "Repeat operation f on mesh n times."
-  [mesh f n]
-  (nth (iterate f mesh) n))
-
 (defn skeletonize
   "Return mesh with all the flesh removed."
-  [{:keys [faces] :as mesh} & {:keys [thickness get-f-factor]
-                               :or {thickness 1}}]
+  [{:keys [faces] :as mesh}
+   & {:keys [thickness get-f-factor] :or {thickness 1}}]
   (let [get-f-fact (fn [mesh face] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
-        vnormals (:vnormals (compute-vertex-normals (g/tessellate mesh)))
+        vnormals (:vnormals (mm/calc-vertex-normals (tess mesh)))
         offset (fn [vert face f-factor] (g/mix vert (gu/centroid face) f-factor))
         offset-face (fn [face f-factor] (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
@@ -310,7 +151,9 @@
         new-face (fn [[c n] [c-off n-off]]
                    [c n n-off c-off])
         new-faces (fn [face face-off]
-                    (mapv #(new-face %1 %2) (mm/face-vert-pairs face) (mm/face-vert-pairs face-off)))
+                    (mapv #(new-face %1 %2)
+                          (mm/face-vert-pairs face)
+                          (mm/face-vert-pairs face-off)))
         subdivide (fn [outer-f]
                     (let [inner-f (opposite-face outer-f thickness)]
                       (if-let [f-factor (get-f-factor mesh outer-f)]
@@ -324,18 +167,14 @@
         faces (mapcat subdivide faces)]
     (mm/gmesh faces)))
 
-(defn tess
-  "Returns a tesselated mesh."
-  [mesh]
-  (mm/gmesh (into [] (comp (map gu/tessellate-3) cat) (g/faces mesh))))
-
 
 ; ==============================================================================
 ; Catmull-Clark Subdivision Operator
 
 (defn catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
-  [{:keys [faces edges vertices] :as mesh} & {:keys [get-f-point get-e-point get-v-point]}]
+  [{:keys [faces edges vertices] :as mesh}
+   & {:keys [get-f-point get-e-point get-v-point]}]
   (let [get-ep (fn [edge e-faces f-points]
                  (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
         get-vp (fn [mesh vertex]
@@ -345,21 +184,25 @@
                        n (count vn)
                        r (gu/centroid (mapv #(g/mix vertex %) vn))]
                    (g/addm (g/madd r 2.0 f) (g/* vertex (- n 3)) (/ 1.0 n))))
-        get-f-point (or get-f-point get-f-point-centroid)
+        get-f-point (or get-f-point mm/get-face-centroid)
         get-e-point (or get-e-point get-ep)
         get-v-point (or get-v-point get-vp)
         new-face (fn [[p c n] f-point e-points]
                    [(e-points #{p c}) c (e-points #{c n}) f-point])
         new-faces (fn [face f-point e-points]
-                    (mapv #(new-face % f-point e-points) (mm/face-vert-triples face)))
+                    (mapv #(new-face % f-point e-points)
+                          (mm/face-vert-triples face)))
         subdivide (fn [[face f-point] e-points]
                     (new-faces face f-point e-points))
         f-points (into {} (map (fn [face]
-                                 [face (get-f-point mesh face)]) faces))
+                                 [face (get-f-point mesh face)])
+                               faces))
         e-points (into {} (map (fn [[edge e-faces]]
-                                 [edge (get-e-point edge e-faces f-points)]) edges))
+                                 [edge (get-e-point edge e-faces f-points)])
+                               edges))
         v-points (into {} (map (fn [vertex]
-                                 [vertex (get-v-point mesh vertex)]) (keys vertices)))
+                                 [vertex (get-v-point mesh vertex)])
+                               (keys vertices)))
         v-replace (partial replace v-points)
         faces (->> (mapcat #(subdivide % e-points) f-points) (map v-replace))]
     (mm/gmesh faces)))
