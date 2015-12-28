@@ -52,14 +52,14 @@
 
 (defn test-colorer [colorer]
   (do
-   (time (save "test-color-smooth" (-> (smooth 4) (op/colorize (colorer)))))
-   (time (save "test-color-sphere" (-> (sphere 5) (op/colorize (colorer)))))
-   (time (save "test-color-spore" (-> (spore 3) (op/colorize (colorer)))))
+   (time (save "test-color-smooth" (-> (smooth 5) (op/colorize (colorer)))))
+   (time (save "test-color-sphere" (-> (sphere 6) (op/colorize (colorer)))))
+   (time (save "test-color-spore" (-> (spore 4) (op/colorize (colorer)))))
    colorer))
 
-;(time (save "test-color-sphere" (-> (sphere 5) (op/colorize (mc/normal-mod1-sum-hue)))))
+;(time (save "test-color-sphere" (-> (sphere 6) (op/colorize (mc/normal-mod1-sum-hue)))))
 
-(comment (test-colorer mc/normal-mod1-min-hue))
+(comment (test-colorer mc/normal-sum-hue))
 
 
 ; ==============================================================================

@@ -4,6 +4,7 @@
             [thi.ng.geom.core :as g]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
+            [cad.mesh.core :as mm]
             [thi.ng.geom.triangle :as tr]
             [thi.ng.geom.core.vector :as v :refer [vec2 vec3]]))
 
@@ -32,25 +33,12 @@
   ([a b c] (vec3 (mapv (comp round2safe abs-zero)
                        (g/normalize (g/cross (g/- b a) (g/- c a)))))))
 
-(defn face-edges
-  "Returns a lazy seq of edges for a face."
-  [face]
-  (let [face (vec face)]
-    (partition 2 1 (conj face (first face)))))
-
-(defn face-loop-triples
-  "Takes a mesh face (vector of points) and returns lazyseq of successive
-  point triples: [prev curr next]"
-  [face]
-  (let [face (vec face)]
-    (partition 3 1 (cons (peek face) (conj face (first face))))))
-
 (defn calc-face-area-map
   [{:keys [faces] :as mesh}]
   (let [poly-area (fn [face]
                     (let [cent (gu/centroid face)]
                       (reduce + (map (fn [[v1 v2]] (gu/tri-area3 cent v1 v2))
-                                     (face-edges face)))))
+                                     (mm/face-vert-pairs face)))))
         area (fn [face] [face (if (= 3 (count face))
                                 (apply gu/tri-area3 face)
                                 (poly-area face))])
@@ -116,7 +104,7 @@
 (defn face-edge-neighbors
   "Returns a set of faces that neighbor one of the given face's edges."
   [{:keys [edges]} face]
-  (let [faces (into #{} (mapcat (fn [edge] (edges (set edge)))) (face-edges face))
+  (let [faces (into #{} (mapcat (fn [edge] (edges (set edge)))) (mm/face-vert-pairs face))
         faces (clojure.set/difference faces #{face})]
     faces))
 
@@ -189,11 +177,11 @@
   [{:keys [faces vertices] :as mesh}]
   (let [verts (keys vertices)
         f-faces (map (fn [face]
-                       (map gu/centroid (face-edges face))) faces)
+                       (map gu/centroid (mm/face-vert-pairs face))) faces)
         v-faces (map (fn [vert]
-                       (map gu/centroid (vertex-edges mesh vert))) verts)]
-    (->> (concat f-faces v-faces)
-         (g/into (g/clear* mesh)))))
+                       (map gu/centroid (vertex-edges mesh vert))) verts)
+        faces (concat f-faces v-faces)]
+    (mm/gmesh faces)))
 
 ;(defn expand
 ;  [mesh thickness]
@@ -208,13 +196,13 @@
    (let [new-face (fn [[p c n] f-point]
                     [c n f-point])
          new-faces (fn [face f-point]
-                     (mapv #(new-face % f-point) (face-loop-triples face)))
+                     (mapv #(new-face % f-point) (mm/face-vert-triples face)))
          subdivide (fn [face]
                      (if-let [f-point (get-f-point mesh face)]
                        (new-faces face f-point)
-                       [face]))]
-     (->> (mapcat subdivide faces)
-          (g/into (g/clear* mesh))))))
+                       [face]))
+         faces (mapcat subdivide faces)]
+     (mm/gmesh faces))))
 
 (defn ortho
   "Returns mesh with each n-sided face divided into n quadrilaterals."
@@ -225,17 +213,17 @@
          new-face (fn [[p c n] f-point e-points]
                     [(e-points #{p c}) c (e-points #{c n}) f-point])
          new-faces (fn [face f-point e-points]
-                     (mapv #(new-face % f-point e-points) (face-loop-triples face)))
+                     (mapv #(new-face % f-point e-points) (mm/face-vert-triples face)))
          subdivide (fn [face e-points]
                      (if-let [f-point (get-f-point mesh face)]
                        (new-faces face f-point e-points)
                        (let [edged-f (vec (mapcat (fn [[c n]]
-                                                    [c (e-points #{c n})]) (face-edges face)))]
+                                                    [c (e-points #{c n})]) (mm/face-vert-pairs face)))]
                          [edged-f])))
          e-points (into {} (map (fn [edge]
-                                  [edge (get-e-point edge)]) (keys edges)))]
-     (->> (mapcat #(subdivide % e-points) faces)
-          (g/into (g/clear* mesh))))))
+                                  [edge (get-e-point edge)]) (keys edges)))
+         faces (mapcat #(subdivide % e-points) faces)]
+     (mm/gmesh faces))))
 
 ;(defn truncate
 ;  "Returns mesh with new vertices added along edge and old vertices removed,
@@ -296,11 +284,11 @@
                    (let [vf-verts (mapv #(get-in fv-map [% vert])
                                         (vertex-faces mesh vert))
                          vf-vert (g/mix (gu/centroid vf-verts) vert v-factor)
-                         vf-edges (face-edges vf-verts)]
+                         vf-edges (mm/face-vert-pairs vf-verts)]
                      (mapv #(conj % vf-vert) vf-edges)))
-        v-faces (mapcat v->faces (keys vertices))]
-    (->> (concat e-faces f-faces v-faces)
-         (g/into (g/clear* mesh)))))
+        v-faces (mapcat v->faces (keys vertices))
+        faces (concat e-faces f-faces v-faces)]
+    (mm/gmesh faces)))
 
 (defn rep
   "Repeat operation f on mesh n times."
@@ -322,7 +310,7 @@
         new-face (fn [[c n] [c-off n-off]]
                    [c n n-off c-off])
         new-faces (fn [face face-off]
-                    (mapv #(new-face %1 %2) (face-edges face) (face-edges face-off)))
+                    (mapv #(new-face %1 %2) (mm/face-vert-pairs face) (mm/face-vert-pairs face-off)))
         subdivide (fn [outer-f]
                     (let [inner-f (opposite-face outer-f thickness)]
                       (if-let [f-factor (get-f-factor mesh outer-f)]
@@ -332,14 +320,14 @@
                             (new-faces outer-f outer-off)
                             (new-faces inner-f inner-off)
                             (new-faces outer-off (reverse inner-off))))
-                        [outer-f inner-f])))]
-    (->> (mapcat subdivide faces)
-         (g/into (g/clear* mesh)))))
+                        [outer-f inner-f])))
+        faces (mapcat subdivide faces)]
+    (mm/gmesh faces)))
 
 (defn tess
   "Returns a tesselated mesh."
   [mesh]
-  (g/into (g/clear* mesh) (into [] (comp (map gu/tessellate-3) cat) (g/faces mesh))))
+  (mm/gmesh (into [] (comp (map gu/tessellate-3) cat) (g/faces mesh))))
 
 
 ; ==============================================================================
@@ -363,7 +351,7 @@
         new-face (fn [[p c n] f-point e-points]
                    [(e-points #{p c}) c (e-points #{c n}) f-point])
         new-faces (fn [face f-point e-points]
-                    (mapv #(new-face % f-point e-points) (face-loop-triples face)))
+                    (mapv #(new-face % f-point e-points) (mm/face-vert-triples face)))
         subdivide (fn [[face f-point] e-points]
                     (new-faces face f-point e-points))
         f-points (into {} (map (fn [face]
@@ -372,10 +360,9 @@
                                  [edge (get-e-point edge e-faces f-points)]) edges))
         v-points (into {} (map (fn [vertex]
                                  [vertex (get-v-point mesh vertex)]) (keys vertices)))
-        v-replace (partial replace v-points)]
-    (->> (mapcat #(subdivide % e-points) f-points)
-         (map v-replace)
-         (g/into (g/clear* mesh)))))
+        v-replace (partial replace v-points)
+        faces (->> (mapcat #(subdivide % e-points) f-points) (map v-replace))]
+    (mm/gmesh faces)))
 
 
 ; ==============================================================================
