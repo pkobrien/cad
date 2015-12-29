@@ -1,7 +1,8 @@
 (ns cad.x3d
-  (:require [clojure.string :as string]
-            [clojure.data.xml :as xml]
-            [thi.ng.geom.core :as g]))
+  (:require [thi.ng.geom.core :as gc]
+            [cad.mesh.core :as mm]
+            [clojure.string :as string]
+            [clojure.data.xml :as xml]))
 
 
 ; ==============================================================================
@@ -39,13 +40,15 @@
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
   [out mesh & {:keys [indent? units meta] :or {indent? false}}]
-  (let [faces (g/faces mesh)
-        vertices (vec (g/vertices mesh))
+  (let [mesh (mm/calc-vert-map mesh)
+        mesh (mm/calc-face-normals mesh)
+        faces (gc/faces mesh)
+        vertices (vec (gc/vertices mesh))
         vindex (zipmap vertices (range))
         fcolors (:fcolors mesh)
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
-        fnormals (g/face-normals mesh true)
+        fnormals (:fnormals mesh)
         ; Clojure has a bug involving equality of 0.0 and -0.0
         ; http://dev.clojure.org/jira/browse/CLJ-1860
         ; So we get around this by indexing the string value of the normals.

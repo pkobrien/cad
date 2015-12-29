@@ -212,71 +212,100 @@
 ; ==============================================================================
 ; Mesh Annotation Functions
 
+(defn calc-edge-map
+  [mesh]
+  (if (seq (:edges mesh))
+    mesh
+    (assoc mesh :edges (edge-map (gc/faces mesh)))))
+
+(defn calc-vert-map
+  [mesh]
+  (if (seq (:vertices mesh))
+    mesh
+    (assoc mesh :vertices (vert-map (gc/faces mesh)))))
+
 (defn calc-face-area-map
-  [{:keys [faces] :as mesh}]
-  (let [poly-area (fn [face]
-                    (let [cent (gu/centroid face)]
-                      (reduce + (map (fn [[v1 v2]] (gu/tri-area3 cent v1 v2))
-                                     (face-vert-pairs face)))))
-        area (fn [face] [face (if (= 3 (count face))
-                                (apply gu/tri-area3 face)
-                                (poly-area face))])
-        area-map (into {} (map area faces))]
-    (-> mesh
-        (assoc-in [:face-area :map] area-map)
-        (assoc-in [:face-area :min] (apply min (vals area-map)))
-        (assoc-in [:face-area :max] (apply max (vals area-map))))))
+  [mesh]
+  (if (seq (:face-area mesh))
+    mesh
+    (let [poly-area (fn [face]
+                      (let [cent (gu/centroid face)]
+                        (reduce + (map (fn [[v1 v2]] (gu/tri-area3 cent v1 v2))
+                                       (face-vert-pairs face)))))
+          area (fn [face] [face (if (= 3 (count face))
+                                  (apply gu/tri-area3 face)
+                                  (poly-area face))])
+          area-map (into {} (map area (gc/faces mesh)))]
+      (-> mesh
+          (assoc-in [:face-area :map] area-map)
+          (assoc-in [:face-area :min] (apply min (vals area-map)))
+          (assoc-in [:face-area :max] (apply max (vals area-map)))))))
 
 (defn calc-face-circ-map
-  [{:keys [faces] :as mesh}]
-  (let [circ (fn [face] [face (gc/circumference (apply tr/triangle3 face))])
-        circ-map (into {} (map circ faces))]
-    (-> mesh
-        (assoc-in [:face-circ :map] circ-map)
-        (assoc-in [:face-circ :min] (apply min (vals circ-map)))
-        (assoc-in [:face-circ :max] (apply max (vals circ-map))))))
+  [mesh]
+  (if (seq (:face-circ mesh))
+    mesh
+    (let [circ (fn [face] [face (gc/circumference (apply tr/triangle3 face))])
+          circ-map (into {} (map circ (gc/faces mesh)))]
+      (-> mesh
+          (assoc-in [:face-circ :map] circ-map)
+          (assoc-in [:face-circ :min] (apply min (vals circ-map)))
+          (assoc-in [:face-circ :max] (apply max (vals circ-map)))))))
 
 (defn calc-face-dist-map
-  [{:keys [faces] :as mesh} point]
-  (let [dist (fn [face] [face (gc/dist (gu/centroid face) point)])
-        dist-map (into {} (map dist faces))]
-    (-> mesh
-        (assoc-in [:face-dist :map] dist-map)
-        (assoc-in [:face-dist :min] (apply min (vals dist-map)))
-        (assoc-in [:face-dist :max] (apply max (vals dist-map))))))
+  [mesh point]
+  (if (seq (:face-dist mesh))
+    mesh
+    (let [dist (fn [face] [face (gc/dist (gu/centroid face) point)])
+          dist-map (into {} (map dist (gc/faces mesh)))]
+      (-> mesh
+          (assoc-in [:face-dist :map] dist-map)
+          (assoc-in [:face-dist :min] (apply min (vals dist-map)))
+          (assoc-in [:face-dist :max] (apply max (vals dist-map)))))))
 
 (defn calc-face-normals
   [mesh]
-  (loop [norms (transient #{}), fnorms (transient {}), faces (:faces mesh)]
-    (if faces
-      (let [face (first faces)
-            [norms n] (d/index! norms (ortho-normal face))]
-        (recur norms (assoc! fnorms face n) (next faces)))
-      (assoc mesh
-        :normals (persistent! norms)
-        :fnormals (persistent! fnorms)))))
+  (if (seq (:fnormals mesh))
+    mesh
+    (loop [norms (transient #{}), fnorms (transient {}), faces (gc/faces mesh)]
+      (if faces
+        (let [face (first faces)
+              [norms n] (d/index! norms (ortho-normal face))]
+          (recur norms (assoc! fnorms face n) (next faces)))
+        (assoc mesh
+          :normals (persistent! norms)
+          :fnormals (persistent! fnorms))))))
 
 (defn calc-vertex-normals
   [mesh]
-  (let [{:keys [vertices normals fnormals] :as mesh} (if (seq (:fnormals mesh))
-                                                       mesh (calc-face-normals mesh))
-        ntx (comp (map #(get fnormals %)) (distinct))]
-    (loop [norms (transient normals), vnorms (transient (hash-map)), verts (keys vertices)]
-      (if verts
-        (let [v (first verts)
-              [norms n] (->> (d/value-set :f vertices v)
-                             (transduce ntx gc/+ vec3)
-                             (gc/normalize)
-                             (d/index! norms))]
-          (recur norms (assoc! vnorms v n) (next verts)))
-        (assoc mesh
-          :normals (persistent! norms)
-          :vnormals (persistent! vnorms))))))
+  (if (seq (:vnormals mesh))
+    mesh
+    (let [mesh (calc-face-normals mesh)
+          mesh (calc-vert-map mesh)
+          normals (:normals mesh)
+          fnormals (:fnormals mesh)
+          vertices (:vertices mesh)
+          ntx (comp (map #(get fnormals %)) (distinct))]
+      (loop [norms (transient normals)
+             vnorms (transient (hash-map))
+             verts (gc/vertices mesh)]
+        (if verts
+          (let [v (first verts)
+                [norms n] (->> (d/value-set :f vertices v)
+                               (transduce ntx gc/+ vec3)
+                               (gc/normalize)
+                               (d/index! norms))]
+            (recur norms (assoc! vnorms v n) (next verts)))
+          (assoc mesh
+            :normals (persistent! norms)
+            :vnormals (persistent! vnorms)))))))
 
 (defn calc-vnp-map
-  [{:keys [vertices] :as mesh}]
-  (let [vnp (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
-        vnp-map (into {} (for [vertex (keys vertices)]
+  [mesh]
+  (let [mesh (calc-vert-map mesh)
+        vertices (:vertices mesh)
+        vnp (fn [{:keys [next prev f]}] [next {:prev prev :face f}])
+        vnp-map (into {} (for [vertex (gc/vertices mesh)]
                            [vertex (into {} (map vnp (vertices vertex)))]))
         mesh (assoc mesh :vnp-map vnp-map)]
     mesh))
@@ -312,6 +341,12 @@
 ; edges {#{v1 v2} face}
 ; faces #{}
 
+(defn fmesh [faces]
+  (let [mesh (gm/gmesh)
+        faces (set (filter unique-verts? faces))
+        mesh (assoc mesh :faces faces)]
+    mesh))
+
 (defn gmesh [faces]
   (let [mesh (gm/gmesh)
         faces (set (filter unique-verts? faces))
@@ -328,29 +363,29 @@
   ([]
    (tetra 12))
   ([scale]
-   (-> (ph/tetrahedron scale) (gmesh))))
+   (-> (ph/tetrahedron scale) (fmesh))))
 
 (defn hexa
   ([]
    (hexa 10))
   ([scale]
    (let [origin (- (/ scale 2))]
-     (-> (cu/cuboid origin scale) (gc/faces) (gmesh)))))
+     (-> (cu/cuboid origin scale) (gc/faces) (fmesh)))))
 
 (defn octa
   ([]
    (octa 8))
   ([scale]
-   (-> (ph/octahedron scale) (gmesh))))
+   (-> (ph/octahedron scale) (fmesh))))
 
 (defn dodeca
   ([]
    (dodeca 7))
   ([scale]
-   (-> (ph/dodecahedron scale) (gmesh))))
+   (-> (ph/dodecahedron scale) (fmesh))))
 
 (defn icosa
   ([]
    (icosa 7.5))
   ([scale]
-   (-> (ph/icosahedron scale) (gmesh))))
+   (-> (ph/icosahedron scale) (fmesh))))

@@ -105,7 +105,7 @@
       (op/colorize (mc/normal-sum-mod1-hue))
       ))
 
-(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (mm/dodeca 7) 5))))
+;(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (mm/dodeca 7) 5))))
 
 (comment
   (time (def mesh-skd (smooth-kis (mm/dodeca 7) 5)))
