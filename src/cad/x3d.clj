@@ -40,8 +40,11 @@
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
   [out mesh & {:keys [indent? units meta] :or {indent? false}}]
-  (let [mesh (mm/calc-face-normals mesh)
+  (let [_ (prn "write-x3d")
+        mesh (mm/calc-face-normals mesh)
+        _ (prn "face normals calculated")
         mesh (mm/calc-verts mesh)
+        _ (prn "mesh verts calculated")
         faces (gc/faces mesh)
         verts (:verts mesh)
         vindex (zipmap verts (range))
@@ -49,25 +52,22 @@
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
         fnormals (:fnormals mesh)
-        ; Clojure has a bug involving equality of 0.0 and -0.0
-        ; http://dev.clojure.org/jira/browse/CLJ-1860
-        ; So we get around this by indexing the string value of the normals.
-        ;normals (vec (set (vals fnormals)))
-        normals (vec (set (map str (vals fnormals))))
+        normals (vec (set (vals fnormals)))
         nindex (zipmap normals (range))
         per-v-fmt (fn [coll] (str (string/join " -1 " coll) " -1"))
         viface-fmt (fn [face] (string/join " " (mapv #(get vindex %) face)))
         vertex-index (per-v-fmt (map viface-fmt faces))
         get-cindex (fn [face] (get cindex (get fcolors face)))
         color-index (string/join " " (map get-cindex faces))
-        ;get-nindex (fn [face] (get nindex (get fnormals face)))
-        get-nindex (fn [face] (get nindex (str (get fnormals face))))
+        get-nindex (fn [face] (get nindex (get fnormals face)))
         normal-index (string/join " " (map get-nindex faces))
         list-format (fn [coll] (string/join " " (apply concat coll)))
         vertex-list (list-format verts)
+        _ (prn "vertex list formatted")
         color-list (list-format colors)
-        ;normal-list (list-format normals)
-        normal-list (string/join " " (map #(subs % 1 (dec (count %))) normals))
+        _ (prn "color list formatted")
+        normal-list (list-format normals)
+        _ (prn "normal list formatted")
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (or (seq units) (seq meta))

@@ -80,56 +80,50 @@
 
 (defn normal-rgb []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
+    (let [fc (fn [mesh face]
                (let [[r g b] (mapv #(m/map-interval % -1.0 1.0 0.0 1.0)
-                                   (gc/face-normal mesh face))
+                                   (mm/ortho-normal face))
                      alpha 1.0]
                  [r g b alpha]))]
       [mesh fc])))
 
 (defn normal-abs-rgb []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[r g b] (mapv abs (gc/face-normal mesh face))
+    (let [fc (fn [mesh face]
+               (let [[r g b] (mapv abs (mm/ortho-normal face))
                      alpha 1.0]
                  [r g b alpha]))]
       [mesh fc])))
 
 (defn normal-mod1-rgb []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[r g b] (mapv #(mod % 1) (gc/face-normal mesh face))
+    (let [fc (fn [mesh face]
+               (let [[r g b] (mapv #(mod % 1) (mm/ortho-normal face))
                      alpha 1.0]
                  [r g b alpha]))]
       [mesh fc])))
 
 (defn normal-cie1931 []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
+    (let [fc (fn [mesh face]
                (let [[x y z] (mapv #(m/map-interval % -1.0 1.0 0.0 1.0)
-                                   (gc/face-normal mesh face))
+                                   (mm/ortho-normal face))
                      color (col/as-rgba (col/cie1931 [x y z 1.0]))]
                  @color))]
       [mesh fc])))
 
 (defn normal-abs-cie1931 []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (mapv abs (gc/face-normal mesh face))
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mapv abs (mm/ortho-normal face))
                      color (col/as-rgba (col/cie1931 [x y z 1.0]))]
                  @color))]
       [mesh fc])))
 
 (defn normal-sum-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      max-sum (* 3 (Math/sqrt (/ 1 3)))
                      min-sum (- max-sum)
                      hue (-> (+ x y z) (m/map-interval min-sum max-sum 0.0 1.0))
@@ -140,9 +134,8 @@
 
 (defn normal-mod1-sum-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (mapv #(mod % 1) (gc/face-normal mesh face))
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mapv #(mod % 1) (mm/ortho-normal face))
                      hue (m/map-interval (+ x y z) 0.0 3.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -151,9 +144,8 @@
 
 (defn normal-sum-mod1-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      hue (-> (+ x y z) (mod 1))
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -162,9 +154,8 @@
 
 (defn normal-max-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      hue (m/map-interval (max x y z) -1.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -173,9 +164,8 @@
 
 (defn normal-max-abs-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      hue (m/map-interval (abs (max x y z)) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -184,9 +174,8 @@
 
 (defn normal-mod1-max-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (mapv #(mod % 1) (gc/face-normal mesh face))
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mapv #(mod % 1) (mm/ortho-normal face))
                      hue (m/map-interval (max x y z) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -195,9 +184,8 @@
 
 (defn normal-min-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      hue (m/map-interval (min x y z) -1.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -206,9 +194,8 @@
 
 (defn normal-min-abs-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      hue (m/map-interval (abs (min x y z)) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -217,9 +204,8 @@
 
 (defn normal-mod1-min-hue []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (mapv #(mod % 1) (gc/face-normal mesh face))
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mapv #(mod % 1) (mm/ortho-normal face))
                      hue (m/map-interval (min x y z) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
@@ -271,7 +257,6 @@
           mesh (mm/calc-face-area-map mesh)
           mesh (mm/calc-face-circ-map mesh)
           mesh (mm/calc-face-dist-map mesh mesh-centroid)
-          mesh (mm/calc-face-normals mesh)
           min-area (get-in mesh [:face-area :min])
           max-area (get-in mesh [:face-area :max])
           min-circ (get-in mesh [:face-circ :min])
@@ -279,8 +264,8 @@
           min-dist (get-in mesh [:face-dist :min])
           max-dist (get-in mesh [:face-dist :max])
           fc (fn [mesh face]
-               (let [[x y z] (mapv abs (gc/face-normal mesh face))
-                     [nx ny nz] (mapv #(mod % 1) (gc/face-normal mesh face))
+               (let [[x y z] (mapv abs (mm/ortho-normal face))
+                     [nx ny nz] (mapv #(mod % 1) (mm/ortho-normal face))
                      delta (- (max x y z) (min x y z))
                      face-area (get-in mesh [:face-area :map face])
                      norm-area (m/map-interval face-area min-area max-area 0.0 1.0)
@@ -311,9 +296,8 @@
 
 (defn alien []
   (fn [mesh]
-    (let [mesh (mm/calc-face-normals mesh)
-          fc (fn [mesh face]
-               (let [[x y z] (gc/face-normal mesh face)
+    (let [fc (fn [mesh face]
+               (let [[x y z] (mm/ortho-normal face)
                      [nx ny nz] (mapv abs [x y z])
                      average (/ (+ nx ny nz) 3.0)
                      hue average

@@ -293,14 +293,9 @@
   [mesh]
   (if (seq (:fnormals mesh))
     mesh
-    (loop [norms (transient #{}), fnorms (transient {}), faces (gc/faces mesh)]
-      (if faces
-        (let [face (first faces)
-              [norms n] (d/index! norms (ortho-normal face))]
-          (recur norms (assoc! fnorms face n) (next faces)))
-        (assoc mesh
-          :normals (persistent! norms)
-          :fnormals (persistent! fnorms))))))
+    (assoc mesh :fnormals (into {} (map (fn [face]
+                                          [face (ortho-normal face)])
+                                        (gc/faces mesh))))))
 
 (defn calc-vertex-normals
   [mesh]
@@ -314,7 +309,7 @@
           ntx (comp (map #(get fnormals %)) (distinct))]
       (loop [norms (transient normals)
              vnorms (transient (hash-map))
-             verts (gc/vertices mesh)]
+             verts (keys (:vert-map mesh))]
         (if verts
           (let [v (first verts)
                 [norms n] (->> (d/value-set :face vert-map v)
@@ -323,7 +318,6 @@
                                (d/index! norms))]
             (recur norms (assoc! vnorms v n) (next verts)))
           (assoc mesh
-            :normals (persistent! norms)
             :vnormals (persistent! vnorms)))))))
 
 (defn calc-vnpf-map

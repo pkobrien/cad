@@ -1,7 +1,6 @@
 (ns cad.mesh.ops
   (:require [clojure.set]
             [thi.ng.geom.core :as gc]
-            [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
             [cad.mesh.color :as mc]
             [cad.mesh.core :as mm]))
