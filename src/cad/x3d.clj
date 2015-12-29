@@ -40,11 +40,11 @@
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
   [out mesh & {:keys [indent? units meta] :or {indent? false}}]
-  (let [mesh (mm/calc-vert-map mesh)
-        mesh (mm/calc-face-normals mesh)
+  (let [mesh (mm/calc-face-normals mesh)
+        mesh (mm/calc-verts mesh)
         faces (gc/faces mesh)
-        vertices (vec (gc/vertices mesh))
-        vindex (zipmap vertices (range))
+        verts (:verts mesh)
+        vindex (zipmap verts (range))
         fcolors (:fcolors mesh)
         colors (vec (set (vals fcolors)))
         cindex (zipmap colors (range))
@@ -64,7 +64,7 @@
         get-nindex (fn [face] (get nindex (str (get fnormals face))))
         normal-index (string/join " " (map get-nindex faces))
         list-format (fn [coll] (string/join " " (apply concat coll)))
-        vertex-list (list-format vertices)
+        vertex-list (list-format verts)
         color-list (list-format colors)
         ;normal-list (list-format normals)
         normal-list (string/join " " (map #(subs % 1 (dec (count %))) normals))

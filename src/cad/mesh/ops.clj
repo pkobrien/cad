@@ -28,12 +28,13 @@
   "Returns mesh with new vertices added mid-edge and old vertices removed."
   [mesh]
   (let [mesh (mm/calc-vert-map mesh)
+        verts (keys (:vert-map mesh))
         f-faces (map (fn [face]
                        (map gu/centroid (mm/face-vert-pairs face)))
                      (gc/faces mesh))
         v-faces (map (fn [vert]
                        (map gu/centroid (mm/vertex-edges mesh vert)))
-                     (gc/vertices mesh))
+                     verts)
         faces (concat f-faces v-faces)]
     (mm/fmesh faces)))
 
@@ -63,6 +64,7 @@
    (ortho mesh mm/get-face-centroid))
   ([mesh get-f-point]
    (let [mesh (mm/calc-edge-map mesh)
+         edges (keys (:edge-map mesh))
          get-e-point (fn [edge] (gu/centroid (vec edge)))
          new-face (fn [[p c n] f-point e-points]
                     [(e-points #{p c}) c (e-points #{c n}) f-point])
@@ -77,7 +79,8 @@
                                                   (mm/face-vert-pairs face)))]
                          [edged-f])))
          e-points (into {} (map (fn [edge]
-                                  [edge (get-e-point edge)]) (gc/edges mesh)))
+                                  [edge (get-e-point edge)])
+                                edges))
          faces (mapcat #(subdivide % e-points) (gc/faces mesh))]
      (mm/fmesh faces))))
 
@@ -98,9 +101,9 @@
    (colorize mesh (mc/normal-abs-rgb) nil))
   ([mesh get-f-color]
    (colorize mesh get-f-color nil))
-  ([{:keys [faces] :as mesh} get-f-color cb]
+  ([mesh get-f-color cb]
    (let [[mesh get-fc] (get-f-color mesh)
-         fcolors (into {} (for [face faces]
+         fcolors (into {} (for [face (gc/faces mesh)]
                             (let [color (get-fc mesh face)
                                   color (if cb (cb color) color)]
                               [face color])))
@@ -111,16 +114,17 @@
   "Symetrical edge smoothing while mostly maintaining bounding box dimensions."
   [mesh & {:keys [f-factor v-factor] :or {f-factor 0.5 v-factor 0.25}}]
   (let [mesh (mm/calc-edge-map mesh)
-        mesh (mm/calc-vert-map mesh)
-        mesh (mm/calc-vnp-map mesh)
+        mesh (mm/calc-vnpf-map mesh)
+        edges (keys (:edge-map mesh))
+        verts (keys (:vert-map mesh))
         offset (fn [vert face] (gc/mix vert (gu/centroid face) f-factor))
         fv-map (into {} (for [face (gc/faces mesh)]
                           [face (into {} (for [vert face]
                                            [vert (offset vert face)]))]))
-        e-faces (for [edge (gc/edges mesh)]
+        e-faces (for [edge edges]
                   (let [[v1 v2] (sort (vec edge))
-                        f1 (get-in mesh [:vnp-map v1 v2 :face])
-                        f2 (get-in mesh [:vnp-map v2 v1 :face])
+                        f1 (get-in mesh [:vnpf-map v1 v2 :face])
+                        f2 (get-in mesh [:vnpf-map v2 v1 :face])
                         va (get-in fv-map [f1 v2])
                         vb (get-in fv-map [f1 v1])
                         vc (get-in fv-map [f2 v1])
@@ -135,7 +139,7 @@
                          vf-vert (gc/mix (gu/centroid vf-verts) vert v-factor)
                          vf-edges (mm/face-vert-pairs vf-verts)]
                      (mapv #(conj % vf-vert) vf-edges)))
-        v-faces (mapcat v->faces (gc/vertices mesh))
+        v-faces (mapcat v->faces verts)
         faces (concat e-faces f-faces v-faces)]
     (mm/fmesh faces)))
 
@@ -178,13 +182,14 @@
   [mesh & {:keys [get-f-point get-e-point get-v-point]}]
   (let [mesh (mm/calc-edge-map mesh)
         mesh (mm/calc-vert-map mesh)
-        edge-map (:edges mesh)
+        edge-map (:edge-map mesh)
+        verts (keys (:vert-map mesh))
         get-ep (fn [edge e-faces f-points]
                  (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
         get-vp (fn [mesh vertex]
                  (let [f (gu/centroid (mapv gu/centroid
-                                            (gm/vertex-faces* mesh vertex)))
-                       vn (gm/vertex-neighbors* mesh vertex)
+                                            (mm/vertex-faces mesh vertex)))
+                       vn (mm/vertex-neighbors mesh vertex)
                        n (count vn)
                        r (gu/centroid (mapv #(gc/mix vertex %) vn))]
                    (gc/addm (gc/madd r 2.0 f) (gc/* vertex (- n 3)) (/ 1.0 n))))
@@ -206,7 +211,7 @@
                                edge-map))
         v-points (into {} (map (fn [vertex]
                                  [vertex (get-v-point mesh vertex)])
-                               (gc/vertices mesh)))
+                               verts))
         v-replace (partial replace v-points)
         faces (->> (mapcat #(subdivide % e-points) f-points) (map v-replace))]
     (mm/fmesh faces)))
