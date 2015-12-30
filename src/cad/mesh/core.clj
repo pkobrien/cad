@@ -70,6 +70,8 @@
   ([a b c] (vec3 (mapv (comp round2safe abs-zero)
                        (gc/normalize (gc/cross (gc/- b a) (gc/- c a)))))))
 
+(defn map-to [f coll]
+  (zipmap coll (map f coll)))
 
 ; ==============================================================================
 ; Printing/Debugging Helpers
@@ -212,21 +214,25 @@
   [face]
   (map (fn [pair] [(set pair) face]) (face-vert-pairs face)))
 
-(defn mesh-edge-map
-  [faces]
-  (hashmap-set (mapcat face-edge-map faces)))
-
 (defn face-vert-map
   [face]
   (map (fn [[p c n]] [c {:next n :prev p :face face}]) (face-vert-triples face)))
 
+(defn mesh-edge-map
+  [mesh]
+  (hashmap-set (mapcat face-edge-map (gc/faces mesh))))
+
+(defn mesh-face-normals
+  [mesh]
+  (into {} (map (fn [face] [face (ortho-normal face)]) (gc/faces mesh))))
+
 (defn mesh-vert-map
-  [faces]
-  (hashmap-set (mapcat face-vert-map faces)))
+  [mesh]
+  (hashmap-set (mapcat face-vert-map (gc/faces mesh))))
 
 (defn mesh-vert-set
-  [faces]
-  (into #{} cat faces))
+  [mesh]
+  (into #{} cat (gc/faces mesh)))
 
 
 ; ==============================================================================
@@ -236,19 +242,19 @@
   [mesh]
   (if (seq (:verts mesh))
     mesh
-    (assoc mesh :verts (mesh-vert-set (gc/faces mesh)))))
+    (assoc mesh :verts (mesh-vert-set mesh))))
 
 (defn calc-edge-map
   [mesh]
   (if (seq (:edge-map mesh))
     mesh
-    (assoc mesh :edge-map (mesh-edge-map (gc/faces mesh)))))
+    (assoc mesh :edge-map (mesh-edge-map mesh))))
 
 (defn calc-vert-map
   [mesh]
   (if (seq (:vert-map mesh))
     mesh
-    (assoc mesh :vert-map (mesh-vert-map (gc/faces mesh)))))
+    (assoc mesh :vert-map (mesh-vert-map mesh))))
 
 (defn calc-face-area-map
   [mesh]
@@ -293,9 +299,7 @@
   [mesh]
   (if (seq (:fnormals mesh))
     mesh
-    (assoc mesh :fnormals (into {} (map (fn [face]
-                                          [face (ortho-normal face)])
-                                        (gc/faces mesh))))))
+    (assoc mesh :fnormals (mesh-face-normals mesh))))
 
 (defn calc-vertex-normals
   [mesh]
