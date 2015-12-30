@@ -226,13 +226,20 @@
     @color))
 
 (defn blend-with-edge-neighbors [t]
-  (fn [mesh] [mesh (partial blend-with-neighbors mm/face-edge-neighbors t)]))
+  (fn [mesh]
+    (let [mesh (mm/calc-edge-map mesh)]
+      [mesh (partial blend-with-neighbors mm/face-edge-neighbors t)])))
 
 (defn blend-with-vertex-neighbors [t]
-  (fn [mesh] [mesh (partial blend-with-neighbors mm/face-vertex-neighbors t)]))
+  (fn [mesh]
+    (let [mesh (mm/calc-vert-map mesh)]
+      [mesh (partial blend-with-neighbors mm/face-vertex-neighbors t)])))
 
 (defn blend-with-vertex-only-neighbors [t]
-  (fn [mesh] [mesh (partial blend-with-neighbors mm/face-vertex-only-neighbors t)]))
+  (fn [mesh]
+    (let [mesh (mm/calc-edge-map mesh)
+          mesh (mm/calc-vert-map mesh)]
+      [mesh (partial blend-with-neighbors mm/face-vertex-only-neighbors t)])))
 
 
 ; ==============================================================================

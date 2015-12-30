@@ -183,7 +183,7 @@
   "Returns a set of faces that share one of the given face's vertices."
   [mesh face]
   (let [faces (into #{} (mapcat (fn [vertex]
-                                  (map :f ((:vert-map mesh) vertex))) face))
+                                  (map :face ((:vert-map mesh) vertex))) face))
         faces (clojure.set/difference faces #{face})]
     faces))
 
