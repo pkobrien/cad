@@ -9,7 +9,7 @@
             [thi.ng.geom.core.utils :as gu]
             [thi.ng.geom.mesh.polyhedra :as ph]
             [thi.ng.geom.triangle :as tr]
-            [thi.ng.geom.core.vector :refer [vec3]]))
+            [thi.ng.geom.core.vector :refer [vec3 V3]]))
 
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* true)
@@ -230,6 +230,24 @@
   [mesh]
   (hashmap-set (mapcat face-vert-map (gc/faces mesh))))
 
+(defn mesh-vert-normals
+  [mesh]
+  (let [normals (:normals mesh)
+        fnormals (mesh-face-normals mesh)
+        vert-map (mesh-vert-map mesh)
+        ntx (comp (map #(get fnormals %)) (distinct))]
+    (loop [norms (transient normals)
+           vnorms (transient (hash-map))
+           verts (keys vert-map)]
+      (if verts
+        (let [v (first verts)
+              [norms n] (->> (d/value-set :face vert-map v)
+                             (transduce ntx gc/+ V3)
+                             (gc/normalize)
+                             (d/index! norms))]
+          (recur norms (assoc! vnorms v n) (next verts)))
+        (persistent! vnorms)))))
+
 (defn mesh-vert-set
   [mesh]
   (into #{} cat (gc/faces mesh)))
@@ -301,28 +319,11 @@
     mesh
     (assoc mesh :fnormals (mesh-face-normals mesh))))
 
-(defn calc-vertex-normals
+(defn calc-vert-normals
   [mesh]
   (if (seq (:vnormals mesh))
     mesh
-    (let [mesh (calc-face-normals mesh)
-          mesh (calc-vert-map mesh)
-          normals (:normals mesh)
-          fnormals (:fnormals mesh)
-          vert-map (:vert-map mesh)
-          ntx (comp (map #(get fnormals %)) (distinct))]
-      (loop [norms (transient normals)
-             vnorms (transient (hash-map))
-             verts (keys (:vert-map mesh))]
-        (if verts
-          (let [v (first verts)
-                [norms n] (->> (d/value-set :face vert-map v)
-                               (transduce ntx gc/+ vec3)
-                               (gc/normalize)
-                               (d/index! norms))]
-            (recur norms (assoc! vnorms v n) (next verts)))
-          (assoc mesh
-            :vnormals (persistent! vnorms)))))))
+    (assoc mesh :vnormals (mesh-vert-normals mesh))))
 
 (defn calc-vnpf-map
   [mesh]

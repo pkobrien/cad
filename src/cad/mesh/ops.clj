@@ -147,12 +147,12 @@
   [mesh & {:keys [thickness get-f-factor] :or {thickness 1}}]
   (let [get-f-fact (fn [_ _] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
-        vnormals (:vnormals (mm/calc-vertex-normals (tess mesh)))
+        vnormals (mm/mesh-vert-normals (tess mesh))
         offset (fn [vert face f-factor] (gc/mix vert (gu/centroid face) f-factor))
         offset-face (fn [face f-factor] (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
-                        (vec (for [vertex (reverse outer-face)]
-                               (gc/+ vertex (gc/* (vnormals vertex) (- thickness))))))
+                        (vec (for [vert (reverse outer-face)]
+                               (gc/+ vert (gc/* (vnormals vert) (- thickness))))))
         new-face (fn [[c n] [c-off n-off]]
                    [c n n-off c-off])
         new-faces (fn [face face-off]

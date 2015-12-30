@@ -89,7 +89,7 @@
       (mm/prn-sides)
       (op/kis (mm/get-point-at-edge-count-height {4 -0.75, 5 -7.0}))
       (mm/prn-sides)
-      (op/rep op/catmull-clark 2)
+      (op/rep op/catmull-clark 3)
       ;(op/colorize)
       (op/colorize (mc/normal-abs-rgb))
       (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 12)
@@ -196,14 +196,14 @@
                  (op/skeletonize
                    :thickness 1
                    :get-f-factor (fn [_ face] (when (original-faces face) 0.1)))
-                 (op/rep op/catmull-clark 4)
+                 (op/rep op/catmull-clark 2)
                  ;(op/tess)
                  (op/kis)
                  (op/colorize)
                  (mm/prn-fev "Final"))]
     mesh))
 
-;(time (save "skel-01" (skel-01 (mm/octa 10))))
+(time (save "skel-01" (skel-01 (mm/octa 10))))
 
 (defn skel-03 [mesh]
   (let [original-faces (:faces mesh)
