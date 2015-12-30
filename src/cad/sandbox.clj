@@ -203,7 +203,7 @@
                  (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-(time (save "skel-01" (skel-01 (mm/octa 10) 2)))
+;(time (save "skel-01" (skel-01 (mm/octa 10) 3)))
 
 (defn skel-03 [mesh]
   (let [original-faces (:faces mesh)

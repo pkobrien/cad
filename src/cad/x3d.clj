@@ -37,6 +37,11 @@
         result (javax.xml.transform.stream.StreamResult. stream)]
     (.transform (xml/indenting-transformer) source result)))
 
+(comment
+  (let [fn (fn [coll] (string/join " " (apply concat coll)))]
+    (reify clojure.lang.IFn (toString [_] (fn))))
+  )
+
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
   [out mesh & {:keys [indent? units meta] :or {indent? false}}]
@@ -54,12 +59,24 @@
         per-vert-format (fn [coll] (str (string/join " -1 " coll) " -1"))
         list-format (fn [coll] (string/join " " (apply concat coll)))
         vi-face-format (fn [face] (string/join " " (mapv vindex face)))
-        formatted-vertex-index (per-vert-format (map vi-face-format faces))
-        formatted-color-index (string/join " " (map get-cindex faces))
-        formatted-normal-index (string/join " " (map get-nindex faces))
-        formatted-vertex-list (list-format verts)
-        formatted-color-list (list-format face-colors)
-        formatted-normal-list (list-format face-normals)
+        formatted-vertex-index (reify Object
+                                 (toString [_]
+                                   (per-vert-format (map vi-face-format faces))))
+        formatted-color-index (reify Object
+                                (toString [_]
+                                  (string/join " " (map get-cindex faces))))
+        formatted-normal-index (reify Object
+                                 (toString [_]
+                                   (string/join " " (map get-nindex faces))))
+        formatted-vertex-list (reify Object
+                                (toString [_]
+                                  (list-format verts)))
+        formatted-color-list (reify Object
+                               (toString [_]
+                                 (list-format face-colors)))
+        formatted-normal-list (reify Object
+                                (toString [_]
+                                  (list-format face-normals)))
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (or (seq units) (seq meta))
