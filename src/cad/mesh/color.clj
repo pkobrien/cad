@@ -37,7 +37,7 @@
 
 (defn area []
   (fn [mesh]
-    (let [mesh (mm/calc-face-area-map mesh)
+    (let [mesh (mm/assoc-face-area-map mesh)
           min-area (get-in mesh [:face-area :min])
           max-area (get-in mesh [:face-area :max])
           fc (fn [mesh face]
@@ -50,7 +50,7 @@
 
 (defn circumference []
   (fn [mesh]
-    (let [mesh (mm/calc-face-circ-map mesh)
+    (let [mesh (mm/assoc-face-circ-map mesh)
           min-circ (get-in mesh [:face-circ :min])
           max-circ (get-in mesh [:face-circ :max])
           fc (fn [mesh face]
@@ -67,7 +67,7 @@
   ([point]
    (fn [mesh]
      (let [point (or point (gc/centroid mesh))
-           mesh (mm/calc-face-dist-map mesh point)
+           mesh (mm/assoc-face-dist-map mesh point)
            min-dist (get-in mesh [:face-dist :min])
            max-dist (get-in mesh [:face-dist :max])
            fc (fn [mesh face]
@@ -227,19 +227,19 @@
 
 (defn blend-with-edge-neighbors [t]
   (fn [mesh]
-    (let [mesh (mm/calc-edge-map mesh)]
+    (let [mesh (mm/assoc-edge-map mesh)]
       [mesh (partial blend-with-neighbors mm/face-edge-neighbors t)])))
 
 (defn blend-with-vertex-neighbors [t]
   (fn [mesh]
-    (let [mesh (mm/calc-vert-map mesh)]
-      [mesh (partial blend-with-neighbors mm/face-vertex-neighbors t)])))
+    (let [mesh (mm/assoc-vert-map mesh)]
+      [mesh (partial blend-with-neighbors mm/face-vert-neighbors t)])))
 
 (defn blend-with-vertex-only-neighbors [t]
   (fn [mesh]
-    (let [mesh (mm/calc-edge-map mesh)
-          mesh (mm/calc-vert-map mesh)]
-      [mesh (partial blend-with-neighbors mm/face-vertex-only-neighbors t)])))
+    (let [mesh (mm/assoc-edge-map mesh)
+          mesh (mm/assoc-vert-map mesh)]
+      [mesh (partial blend-with-neighbors mm/face-vert-only-neighbors t)])))
 
 
 ; ==============================================================================
@@ -261,9 +261,9 @@
 (defn kitchen-sink []
   (fn [mesh]
     (let [mesh-centroid (gc/centroid mesh)
-          mesh (mm/calc-face-area-map mesh)
-          mesh (mm/calc-face-circ-map mesh)
-          mesh (mm/calc-face-dist-map mesh mesh-centroid)
+          mesh (mm/assoc-face-area-map mesh)
+          mesh (mm/assoc-face-circ-map mesh)
+          mesh (mm/assoc-face-dist-map mesh mesh-centroid)
           min-area (get-in mesh [:face-area :min])
           max-area (get-in mesh [:face-area :max])
           min-circ (get-in mesh [:face-circ :min])

@@ -20,7 +20,7 @@
       (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
       (op/tess)
-      (mm/prn-fev "Final")))
+      (mm/prn-face-count "Final")))
 
 (defn alien-spore []
   (-> (spore)
@@ -45,7 +45,7 @@
                  (op/tess)
                  (op/colorize (mc/normal-abs-rgb) (mc/cb col/invert))
                  (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
-                 (mm/prn-fev "Final"))]
+                 (mm/prn-face-count "Final"))]
     mesh))
 
 ;(time (save "alien-skel" (alien-skel)))
@@ -84,7 +84,7 @@
       (op/kis (mm/get-point-at-height height))
       (op/rep op/catmull-clark 3)
       (op/kis (mm/get-point-at-height -0.25))
-      (mm/prn-fev "Final")))
+      (mm/prn-face-count "Final")))
 
 (defn rainkis [mesh height]
   (-> mesh

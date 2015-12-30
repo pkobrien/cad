@@ -8,6 +8,7 @@
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
             [thi.ng.geom.mesh.polyhedra :as ph]
+            [clojure.string :as string]
             [thi.ng.geom.triangle :as tr]
             [thi.ng.geom.core.vector :refer [vec3 V3]]))
 
@@ -64,30 +65,38 @@
 
 (def round2safe (partial round2 14))
 
+(defn hashmap-set
+  [keyvals]
+  (persistent!
+    (reduce
+      (fn [ret [k v]]
+        (assoc! ret k (conj (get ret k #{}) v)))
+      (transient {}) keyvals)))
+
 (defn ortho-normal
   ([[a b c]] (ortho-normal a b c))
   ([a b] (gc/normalize (gc/cross a b)))
   ([a b c] (vec3 (mapv (comp round2safe abs-zero)
                        (gc/normalize (gc/cross (gc/- b a) (gc/- c a)))))))
 
-(defn map-to [f coll]
+(defn zipmapf [f coll]
   (zipmap coll (map f coll)))
+
 
 ; ==============================================================================
 ; Printing/Debugging Helpers
 
-(defn prn-fev
+(defn prn-face-count
   ([mesh]
-   (prn-fev mesh "Mesh"))
+   (prn-face-count mesh "Mesh"))
   ([mesh msg]
-   (prn msg
-        "F" (count (gc/faces mesh))
-        "E" (count (gc/edges mesh))
-        "V" (count (gc/vertices mesh)))
+   (prn (string/join " " [msg "Face-Count:" (count (gc/faces mesh))]))
    mesh))
 
-(defn prn-sides [mesh]
-  (prn "Sides-Count" (frequencies (map count (:faces mesh))))
+(defn prn-side-count
+  [mesh]
+  (prn (string/join " " ["Sides-Count:"
+                         (frequencies (map count (gc/faces mesh)))]))
   mesh)
 
 (defmacro spy [x]
@@ -98,7 +107,7 @@
 
 
 ; ==============================================================================
-; Mesh Functions
+; Face Functions
 
 (defn face-vert-pairs
   "Returns a lazy seq of vertex pairs for a face."
@@ -135,24 +144,30 @@
     (if-let [height (edge-count-height-map (count face))]
       (get-face-point face :height height))))
 
-(defn vertex-edges
+
+; ==============================================================================
+; Vertex Functions (dependent on mesh having a :vert-map
+
+(defn vert-edges
   "Returns a vector of edges for a vertex in ccw order."
-  [mesh vertex]
-  (let [vnp (fn [{:keys [next prev]}] [next prev])
-        np-map (into {} (map vnp ((:vert-map mesh) vertex)))
+  [mesh vert]
+  (let [vert-map (:vert-map mesh)
+        vnp (fn [{:keys [next prev]}] [next prev])
+        np-map (into {} (map vnp (vert-map vert)))
         start (first (sort (keys np-map)))
         e-verts (reduce (fn [acc _]
                           (conj acc (np-map (last acc))))
                         [start] (range (dec (count np-map))))
-        edges (mapv (fn [e-vert] [vertex e-vert]) e-verts)]
+        edges (mapv (fn [e-vert] [vert e-vert]) e-verts)]
     edges))
 
-(defn vertex-faces
+(defn vert-faces
   "Returns a vector of faces for a vertex in ccw order."
-  [mesh vertex]
-  (let [vnpf (fn [{:keys [next prev face]}] [next {:prev prev :face face}])
-        npf-map (or (get-in mesh [:vnpf-map vertex])
-                    (into {} (map vnpf ((:vert-map mesh) vertex))))
+  [mesh vert]
+  (let [vert-map (:vert-map mesh)
+        vnpf (fn [{:keys [next prev face]}] [next {:prev prev :face face}])
+        npf-map (or (get-in mesh [:vnpf-map vert])
+                    (into {} (map vnpf (vert-map vert))))
         start (first (sort (keys npf-map)))
         e-verts (reduce (fn [acc _]
                           (conj acc (get-in npf-map [(last acc) :prev])))
@@ -160,12 +175,12 @@
         faces (mapv (fn [vert] (get-in npf-map [vert :face])) e-verts)]
     faces))
 
-(defn vertex-neighbors
-  [mesh vertex]
+(defn vert-neighbors
+  [mesh vert]
   (let [vert-map (:vert-map mesh)]
     (clojure.set/union
-      (d/value-set :next vert-map vertex)
-      (d/value-set :prev vert-map vertex))))
+      (d/value-set :next vert-map vert)
+      (d/value-set :prev vert-map vert))))
 
 
 ; ==============================================================================
@@ -174,24 +189,26 @@
 (defn face-edge-neighbors
   "Returns a set of faces that neighbor one of the given face's edges."
   [mesh face]
-  (let [faces (into #{} (mapcat (fn [edge] ((:edge-map mesh) (set edge))))
-                    (face-vert-pairs face))
+  (let [edge-map (:edge-map mesh)
+        xf (mapcat (fn [edge] (edge-map (set edge))))
+        faces (into #{} xf (face-vert-pairs face))
         faces (clojure.set/difference faces #{face})]
     faces))
 
-(defn face-vertex-neighbors
+(defn face-vert-neighbors
   "Returns a set of faces that share one of the given face's vertices."
   [mesh face]
-  (let [faces (into #{} (mapcat (fn [vertex]
-                                  (map :face ((:vert-map mesh) vertex))) face))
+  (let [vert-map (:vert-map mesh)
+        xf (mapcat (fn [vert] (map :face (vert-map vert))))
+        faces (into #{} xf face)
         faces (clojure.set/difference faces #{face})]
     faces))
 
-(defn face-vertex-only-neighbors
+(defn face-vert-only-neighbors
   "Returns a set of faces that share one of the given face's vertices but do
    not share any edges."
   [mesh face]
-  (clojure.set/difference (face-vertex-neighbors mesh face)
+  (clojure.set/difference (face-vert-neighbors mesh face)
                           (face-edge-neighbors mesh face)))
 
 
@@ -201,14 +218,6 @@
 (defn unique-verts? [face]
   "Returns true if there are no duplicate vertices within the face."
   (= (count face) (count (set face))))
-
-(defn hashmap-set
-  [keyvals]
-  (persistent!
-    (reduce
-      (fn [ret [k v]]
-        (assoc! ret k (conj (get ret k #{}) v)))
-      (transient {}) keyvals)))
 
 (defn face-edge-map
   [face]
@@ -256,25 +265,25 @@
 ; ==============================================================================
 ; Mesh Annotation Functions
 
-(defn calc-verts
-  [mesh]
-  (if (seq (:verts mesh))
+(defn mesh-assoc
+  [mesh kw f]
+  (if (seq (kw mesh))
     mesh
-    (assoc mesh :verts (mesh-vert-set mesh))))
+    (assoc mesh kw (f mesh))))
 
-(defn calc-edge-map
+(defn assoc-verts
   [mesh]
-  (if (seq (:edge-map mesh))
-    mesh
-    (assoc mesh :edge-map (mesh-edge-map mesh))))
+  (mesh-assoc mesh :verts mesh-vert-set))
 
-(defn calc-vert-map
+(defn assoc-edge-map
   [mesh]
-  (if (seq (:vert-map mesh))
-    mesh
-    (assoc mesh :vert-map (mesh-vert-map mesh))))
+  (mesh-assoc mesh :edge-map mesh-edge-map))
 
-(defn calc-face-area-map
+(defn assoc-vert-map
+  [mesh]
+  (mesh-assoc mesh :vert-map mesh-vert-map))
+
+(defn assoc-face-area-map
   [mesh]
   (if (seq (:face-area mesh))
     mesh
@@ -291,7 +300,7 @@
           (assoc-in [:face-area :min] (apply min (vals area-map)))
           (assoc-in [:face-area :max] (apply max (vals area-map)))))))
 
-(defn calc-face-circ-map
+(defn assoc-face-circ-map
   [mesh]
   (if (seq (:face-circ mesh))
     mesh
@@ -302,7 +311,7 @@
           (assoc-in [:face-circ :min] (apply min (vals circ-map)))
           (assoc-in [:face-circ :max] (apply max (vals circ-map)))))))
 
-(defn calc-face-dist-map
+(defn assoc-face-dist-map
   [mesh point]
   (if (seq (:face-dist mesh))
     mesh
@@ -313,21 +322,17 @@
           (assoc-in [:face-dist :min] (apply min (vals dist-map)))
           (assoc-in [:face-dist :max] (apply max (vals dist-map)))))))
 
-(defn calc-face-normals
+(defn assoc-face-normals
   [mesh]
-  (if (seq (:fnormals mesh))
-    mesh
-    (assoc mesh :fnormals (mesh-face-normals mesh))))
+  (mesh-assoc mesh :fnormals mesh-face-normals))
 
-(defn calc-vert-normals
+(defn assoc-vert-normals
   [mesh]
-  (if (seq (:vnormals mesh))
-    mesh
-    (assoc mesh :vnormals (mesh-vert-normals mesh))))
+  (mesh-assoc mesh :vnormals mesh-vert-normals))
 
-(defn calc-vnpf-map
+(defn assoc-vnpf-map
   [mesh]
-  (let [mesh (calc-vert-map mesh)
+  (let [mesh (assoc-vert-map mesh)
         vert-map (:vert-map mesh)
         verts (keys (:vert-map mesh))
         vnpf (fn [{:keys [next prev face]}] [next {:prev prev :face face}])

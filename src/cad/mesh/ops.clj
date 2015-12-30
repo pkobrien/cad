@@ -26,13 +26,13 @@
 (defn ambo
   "Returns mesh with new vertices added mid-edge and old vertices removed."
   [mesh]
-  (let [mesh (mm/calc-vert-map mesh)
+  (let [mesh (mm/assoc-vert-map mesh)
         verts (keys (:vert-map mesh))
         f-faces (map (fn [face]
                        (map gu/centroid (mm/face-vert-pairs face)))
                      (gc/faces mesh))
         v-faces (map (fn [vert]
-                       (map gu/centroid (mm/vertex-edges mesh vert)))
+                       (map gu/centroid (mm/vert-edges mesh vert)))
                      verts)
         faces (concat f-faces v-faces)]
     (mm/fmesh faces)))
@@ -62,7 +62,7 @@
   ([mesh]
    (ortho mesh mm/get-face-centroid))
   ([mesh get-f-point]
-   (let [mesh (mm/calc-edge-map mesh)
+   (let [mesh (mm/assoc-edge-map mesh)
          edges (keys (:edge-map mesh))
          get-e-point (fn [edge] (gu/centroid (vec edge)))
          new-face (fn [[p c n] f-point e-points]
@@ -112,8 +112,8 @@
 (defn complexify
   "Symetrical edge smoothing while mostly maintaining bounding box dimensions."
   [mesh & {:keys [f-factor v-factor] :or {f-factor 0.5 v-factor 0.25}}]
-  (let [mesh (mm/calc-edge-map mesh)
-        mesh (mm/calc-vnpf-map mesh)
+  (let [mesh (mm/assoc-edge-map mesh)
+        mesh (mm/assoc-vnpf-map mesh)
         edges (keys (:edge-map mesh))
         verts (keys (:vert-map mesh))
         offset (fn [vert face] (gc/mix vert (gu/centroid face) f-factor))
@@ -134,7 +134,7 @@
                     (get-in fv-map [face vert])))
         v->faces (fn [vert]
                    (let [vf-verts (mapv #(get-in fv-map [% vert])
-                                        (mm/vertex-faces mesh vert))
+                                        (mm/vert-faces mesh vert))
                          vf-vert (gc/mix (gu/centroid vf-verts) vert v-factor)
                          vf-edges (mm/face-vert-pairs vf-verts)]
                      (mapv #(conj % vf-vert) vf-edges)))
@@ -179,16 +179,16 @@
 (defn catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
   [mesh & {:keys [get-f-point get-e-point get-v-point]}]
-  (let [mesh (mm/calc-edge-map mesh)
-        mesh (mm/calc-vert-map mesh)
+  (let [mesh (mm/assoc-edge-map mesh)
+        mesh (mm/assoc-vert-map mesh)
         edge-map (:edge-map mesh)
         verts (keys (:vert-map mesh))
         get-ep (fn [edge e-faces f-points]
                  (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
         get-vp (fn [mesh vertex]
                  (let [f (gu/centroid (mapv gu/centroid
-                                            (mm/vertex-faces mesh vertex)))
-                       vn (mm/vertex-neighbors mesh vertex)
+                                            (mm/vert-faces mesh vertex)))
+                       vn (mm/vert-neighbors mesh vertex)
                        n (count vn)
                        r (gu/centroid (mapv #(gc/mix vertex %) vn))]
                    (gc/addm (gc/madd r 2.0 f) (gc/* vertex (- n 3)) (/ 1.0 n))))
