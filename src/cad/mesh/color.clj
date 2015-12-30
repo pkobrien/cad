@@ -3,7 +3,7 @@
             [thi.ng.color.core :as col]
             [thi.ng.geom.core :as gc]
             [thi.ng.geom.core.utils :as gu]
-            [thi.ng.math.core :as m]
+            [thi.ng.math.core :as math]
             [cad.mesh.core :as mm]))
 
 
@@ -42,7 +42,7 @@
           max-area (get-in mesh [:face-area :max])
           fc (fn [mesh face]
                (let [face-area (get-in mesh [:face-area :map face])
-                     norm-area (m/map-interval face-area min-area max-area 0.0 1.0)
+                     norm-area (math/map-interval face-area min-area max-area 0.0 1.0)
                      hue norm-area
                      color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
                  @color))]
@@ -55,7 +55,7 @@
           max-circ (get-in mesh [:face-circ :max])
           fc (fn [mesh face]
                (let [face-circ (get-in mesh [:face-circ :map face])
-                     norm-circ (m/map-interval face-circ min-circ max-circ 0.0 1.0)
+                     norm-circ (math/map-interval face-circ min-circ max-circ 0.0 1.0)
                      hue norm-circ
                      color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
                  @color))]
@@ -72,7 +72,7 @@
            max-dist (get-in mesh [:face-dist :max])
            fc (fn [mesh face]
                 (let [face-dist (get-in mesh [:face-dist :map face])
-                      norm-dist (m/map-interval face-dist min-dist max-dist 0.0 1.0)
+                      norm-dist (math/map-interval face-dist min-dist max-dist 0.0 1.0)
                       hue norm-dist
                       color (col/as-rgba (col/hsva hue 1.0 1.0 1.0))]
                   @color))]
@@ -81,7 +81,7 @@
 (defn normal-rgb []
   (fn [mesh]
     (let [fc (fn [mesh face]
-               (let [[r g b] (mapv #(m/map-interval % -1.0 1.0 0.0 1.0)
+               (let [[r g b] (mapv #(math/map-interval % -1.0 1.0 0.0 1.0)
                                    (mm/ortho-normal face))
                      alpha 1.0]
                  [r g b alpha]))]
@@ -106,7 +106,7 @@
 (defn normal-cie1931 []
   (fn [mesh]
     (let [fc (fn [mesh face]
-               (let [[x y z] (mapv #(m/map-interval % -1.0 1.0 0.0 1.0)
+               (let [[x y z] (mapv #(math/map-interval % -1.0 1.0 0.0 1.0)
                                    (mm/ortho-normal face))
                      color (col/as-rgba (col/cie1931 [x y z 1.0]))]
                  @color))]
@@ -126,7 +126,7 @@
                (let [[x y z] (mm/ortho-normal face)
                      max-sum (* 3 (Math/sqrt (/ 1 3)))
                      min-sum (- max-sum)
-                     hue (-> (+ x y z) (m/map-interval min-sum max-sum 0.0 1.0))
+                     hue (-> (+ x y z) (math/map-interval min-sum max-sum 0.0 1.0))
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -136,7 +136,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mapv #(mod % 1) (mm/ortho-normal face))
-                     hue (m/map-interval (+ x y z) 0.0 3.0 0.0 1.0)
+                     hue (math/map-interval (+ x y z) 0.0 3.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -156,7 +156,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mm/ortho-normal face)
-                     hue (m/map-interval (max x y z) -1.0 1.0 0.0 1.0)
+                     hue (math/map-interval (max x y z) -1.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -166,7 +166,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mm/ortho-normal face)
-                     hue (m/map-interval (abs (max x y z)) 0.0 1.0 0.0 1.0)
+                     hue (math/map-interval (abs (max x y z)) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -176,7 +176,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mapv #(mod % 1) (mm/ortho-normal face))
-                     hue (m/map-interval (max x y z) 0.0 1.0 0.0 1.0)
+                     hue (math/map-interval (max x y z) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -186,7 +186,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mm/ortho-normal face)
-                     hue (m/map-interval (min x y z) -1.0 1.0 0.0 1.0)
+                     hue (math/map-interval (min x y z) -1.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -196,7 +196,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mm/ortho-normal face)
-                     hue (m/map-interval (abs (min x y z)) 0.0 1.0 0.0 1.0)
+                     hue (math/map-interval (abs (min x y z)) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -206,7 +206,7 @@
   (fn [mesh]
     (let [fc (fn [mesh face]
                (let [[x y z] (mapv #(mod % 1) (mm/ortho-normal face))
-                     hue (m/map-interval (min x y z) 0.0 1.0 0.0 1.0)
+                     hue (math/map-interval (min x y z) 0.0 1.0 0.0 1.0)
                      sat 1.0 val 1.0 alpha 1.0
                      color (col/as-rgba (col/hsva hue sat val alpha))]
                  @color))]
@@ -227,18 +227,18 @@
 
 (defn blend-with-edge-neighbors [t]
   (fn [mesh]
-    (let [mesh (mm/assoc-edge-map mesh)]
+    (let [mesh (mm/assoc-edge-faces-map mesh)]
       [mesh (partial blend-with-neighbors mm/face-edge-neighbors t)])))
 
 (defn blend-with-vertex-neighbors [t]
   (fn [mesh]
-    (let [mesh (mm/assoc-vert-map mesh)]
+    (let [mesh (mm/assoc-vert-npfs-map mesh)]
       [mesh (partial blend-with-neighbors mm/face-vert-neighbors t)])))
 
 (defn blend-with-vertex-only-neighbors [t]
   (fn [mesh]
-    (let [mesh (mm/assoc-edge-map mesh)
-          mesh (mm/assoc-vert-map mesh)]
+    (let [mesh (mm/assoc-edge-faces-map mesh)
+          mesh (mm/assoc-vert-npfs-map mesh)]
       [mesh (partial blend-with-neighbors mm/face-vert-only-neighbors t)])))
 
 
@@ -275,12 +275,12 @@
                      [nx ny nz] (mapv #(mod % 1) (mm/ortho-normal face))
                      delta (- (max x y z) (min x y z))
                      face-area (get-in mesh [:face-area :map face])
-                     norm-area (m/map-interval face-area min-area max-area 0.0 1.0)
+                     norm-area (math/map-interval face-area min-area max-area 0.0 1.0)
                      area-tenths (mod (* 10 norm-area) 1)
                      face-circ (get-in mesh [:face-circ :map face])
-                     norm-circ (m/map-interval face-circ min-circ max-circ 0.0 1.0)
+                     norm-circ (math/map-interval face-circ min-circ max-circ 0.0 1.0)
                      face-dist (get-in mesh [:face-dist :map face])
-                     norm-dist (m/map-interval face-dist min-dist max-dist 0.0 1.0)
+                     norm-dist (math/map-interval face-dist min-dist max-dist 0.0 1.0)
                      hue 1.0
                      sat 1.0
                      val 1.0
@@ -288,8 +288,8 @@
                      ;hue (m/map-interval (+ norm-area norm-dist) 0.0 2.0 1.0 0.8)
                      ;hue (m/map-interval (+ norm-circ norm-dist) 0.0 2.0 1.0 0.6)
                      ;hue (m/map-interval (+ area-mod1) 0.0 1.0 1.0 0.0)
-                     hue (m/map-interval (+ norm-circ norm-dist nx ny nz)
-                                         0.0 5.0 0.0 1.0)
+                     hue (math/map-interval (+ norm-circ norm-dist nx ny nz)
+                                            0.0 5.0 0.0 1.0)
                      ;sat (m/map-interval norm-dist 0.0 1.0 1.0 0.6)
                      ;sat (m/map-interval (+ norm-area x) 0.0 2.0 0.4 1.0)
                      ;val (m/map-interval norm-dist 0.0 1.0 0.4 1.0)

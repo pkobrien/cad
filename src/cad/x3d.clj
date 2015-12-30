@@ -42,24 +42,24 @@
   [out mesh & {:keys [indent? units meta] :or {indent? false}}]
   (let [faces (gc/faces mesh)
         verts (mm/mesh-vert-set mesh)
+        face-color-map (:face-color-map mesh)
+        face-colors (vec (set (vals face-color-map)))
+        face-normal-map (mm/mesh-face-normal-map mesh)
+        face-normals (vec (set (vals face-normal-map)))
         vindex (zipmap verts (range))
-        fcolors (:fcolors mesh)
-        colors (vec (set (vals fcolors)))
-        cindex (zipmap colors (range))
-        fnormals (mm/mesh-face-normals mesh)
-        normals (vec (set (vals fnormals)))
-        nindex (zipmap normals (range))
-        per-v-fmt (fn [coll] (str (string/join " -1 " coll) " -1"))
-        viface-fmt (fn [face] (string/join " " (mapv #(get vindex %) face)))
-        vertex-index (per-v-fmt (map viface-fmt faces))
-        get-cindex (fn [face] (get cindex (get fcolors face)))
-        color-index (string/join " " (map get-cindex faces))
-        get-nindex (fn [face] (get nindex (get fnormals face)))
-        normal-index (string/join " " (map get-nindex faces))
+        cindex (zipmap face-colors (range))
+        nindex (zipmap face-normals (range))
+        get-cindex (fn [face] (cindex (face-color-map face)))
+        get-nindex (fn [face] (nindex (face-normal-map face)))
+        per-vert-format (fn [coll] (str (string/join " -1 " coll) " -1"))
         list-format (fn [coll] (string/join " " (apply concat coll)))
-        color-list (list-format colors)
-        normal-list (list-format normals)
-        vertex-list (list-format verts)
+        vi-face-format (fn [face] (string/join " " (mapv vindex face)))
+        formatted-vertex-index (per-vert-format (map vi-face-format faces))
+        formatted-color-index (string/join " " (map get-cindex faces))
+        formatted-normal-index (string/join " " (map get-nindex faces))
+        formatted-vertex-list (list-format verts)
+        formatted-color-list (list-format face-colors)
+        formatted-normal-list (list-format face-normals)
         contents (xml/sexp-as-element
                    [:X3D {:version "3.3" :profile "Immersive"}
                     (when (or (seq units) (seq meta))
@@ -76,12 +76,12 @@
                                         :convex "true"
                                         :creaseAngle "0"
                                         :normalPerVertex "false"
-                                        :coordIndex vertex-index
-                                        :colorIndex color-index
-                                        :normalIndex normal-index}
-                       [:Coordinate {:point vertex-list}]
-                       [:ColorRGBA {:color color-list}]
-                       [:Normal {:vector normal-list}]
+                                        :coordIndex formatted-vertex-index
+                                        :colorIndex formatted-color-index
+                                        :normalIndex formatted-normal-index}
+                       [:Coordinate {:point formatted-vertex-list}]
+                       [:ColorRGBA {:color formatted-color-list}]
+                       [:Normal {:vector formatted-normal-list}]
                        ]]]])
         doctype "<!DOCTYPE X3D PUBLIC \"ISO//Web3D//DTD X3D 3.3//EN\" \"http://www.web3d.org/specifications/x3d-3.3.dtd\">"
         emit (if indent? xml-emit-indented xml-emit)]

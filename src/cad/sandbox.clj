@@ -3,7 +3,7 @@
             [clisk.live :as clisk]
             [thi.ng.color.core :as col]
             [cad.mesh.color :as mc]
-            [thi.ng.math.core :as m]
+            [thi.ng.math.core :as math]
             [cad.mesh.core :as mm]
             [cad.mesh.ops :as op]))
 
@@ -186,7 +186,7 @@
 
 ;(time (save "ortho-01" (ortho-01)))
 
-(defn skel-01 [mesh]
+(defn skel-01 [mesh cc]
   (let [original-faces (:faces mesh)
         windows #{(first original-faces) (last original-faces)}
         mesh (-> mesh
@@ -196,14 +196,14 @@
                  (op/skeletonize
                    :thickness 1
                    :get-f-factor (fn [_ face] (when (original-faces face) 0.1)))
-                 (op/rep op/catmull-clark 2)
+                 (op/rep op/catmull-clark cc)
                  ;(op/tess)
                  (op/kis)
                  (op/colorize)
-                 (mm/prn-face-count))]
+                 (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-(time (save "skel-01" (skel-01 (mm/octa 10))))
+(time (save "skel-01" (skel-01 (mm/octa 10) 2)))
 
 (defn skel-03 [mesh]
   (let [original-faces (:faces mesh)
@@ -213,7 +213,7 @@
                       fa-max (get-in mesh [:face-area :max])]
                   (fn [mesh face]
                     (let [area (get-in mesh [:face-area :map face])
-                          norm-area (m/map-interval area fa-min fa-max 0.0 1.0)]
+                          norm-area (math/map-interval area fa-min fa-max 0.0 1.0)]
                       (if (< norm-area min-area)
                         (mm/get-face-point face :height 0)
                         (mm/get-face-point face :height height))))))

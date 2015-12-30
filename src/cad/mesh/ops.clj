@@ -26,8 +26,8 @@
 (defn ambo
   "Returns mesh with new vertices added mid-edge and old vertices removed."
   [mesh]
-  (let [mesh (mm/assoc-vert-map mesh)
-        verts (keys (:vert-map mesh))
+  (let [mesh (mm/assoc-vert-npfs-map mesh)
+        verts (keys (:vert-npfs-map mesh))
         f-faces (map (fn [face]
                        (map gu/centroid (mm/face-vert-pairs face)))
                      (gc/faces mesh))
@@ -62,8 +62,8 @@
   ([mesh]
    (ortho mesh mm/get-face-centroid))
   ([mesh get-f-point]
-   (let [mesh (mm/assoc-edge-map mesh)
-         edges (keys (:edge-map mesh))
+   (let [mesh (mm/assoc-edge-faces-map mesh)
+         edges (keys (:edge-faces-map mesh))
          get-e-point (fn [edge] (gu/centroid (vec edge)))
          new-face (fn [[p c n] f-point e-points]
                     [(e-points #{p c}) c (e-points #{c n}) f-point])
@@ -106,24 +106,25 @@
                             (let [color (get-fc mesh face)
                                   color (if cb (cb color) color)]
                               [face color])))
-         mesh (assoc mesh :fcolors fcolors)]
+         mesh (assoc mesh :face-color-map fcolors)]
      mesh)))
 
 (defn complexify
   "Symetrical edge smoothing while mostly maintaining bounding box dimensions."
   [mesh & {:keys [f-factor v-factor] :or {f-factor 0.5 v-factor 0.25}}]
-  (let [mesh (mm/assoc-edge-map mesh)
-        mesh (mm/assoc-vnpf-map mesh)
-        edges (keys (:edge-map mesh))
-        verts (keys (:vert-map mesh))
+  (let [mesh (mm/assoc-edge-faces-map mesh)
+        mesh (mm/assoc-vert-next-pf-map mesh)
+        mesh (mm/assoc-vert-npfs-map mesh)
+        edges (keys (:edge-faces-map mesh))
+        verts (keys (:vert-next-pf-map mesh))
         offset (fn [vert face] (gc/mix vert (gu/centroid face) f-factor))
         fv-map (into {} (for [face (gc/faces mesh)]
                           [face (into {} (for [vert face]
                                            [vert (offset vert face)]))]))
         e-faces (for [edge edges]
                   (let [[v1 v2] (sort (vec edge))
-                        f1 (get-in mesh [:vnpf-map v1 v2 :face])
-                        f2 (get-in mesh [:vnpf-map v2 v1 :face])
+                        f1 (get-in mesh [:vert-next-pf-map v1 v2 :face])
+                        f2 (get-in mesh [:vert-next-pf-map v2 v1 :face])
                         va (get-in fv-map [f1 v2])
                         vb (get-in fv-map [f1 v1])
                         vc (get-in fv-map [f2 v1])
@@ -147,12 +148,13 @@
   [mesh & {:keys [thickness get-f-factor] :or {thickness 1}}]
   (let [get-f-fact (fn [_ _] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
-        vnormals (mm/mesh-vert-normals (tess mesh))
+        vert-normal-map (mm/mesh-vert-normal-map (tess mesh))
         offset (fn [vert face f-factor] (gc/mix vert (gu/centroid face) f-factor))
         offset-face (fn [face f-factor] (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
                         (vec (for [vert (reverse outer-face)]
-                               (gc/+ vert (gc/* (vnormals vert) (- thickness))))))
+                               (gc/+ vert (gc/* (vert-normal-map vert)
+                                                (- thickness))))))
         new-face (fn [[c n] [c-off n-off]]
                    [c n n-off c-off])
         new-faces (fn [face face-off]
@@ -179,10 +181,10 @@
 (defn catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
   [mesh & {:keys [get-f-point get-e-point get-v-point]}]
-  (let [mesh (mm/assoc-edge-map mesh)
-        mesh (mm/assoc-vert-map mesh)
-        edge-map (:edge-map mesh)
-        verts (keys (:vert-map mesh))
+  (let [mesh (mm/assoc-edge-faces-map mesh)
+        mesh (mm/assoc-vert-npfs-map mesh)
+        edge-faces-map (:edge-faces-map mesh)
+        verts (keys (:vert-npfs-map mesh))
         get-ep (fn [edge e-faces f-points]
                  (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
         get-vp (fn [mesh vertex]
@@ -207,7 +209,7 @@
                                (gc/faces mesh)))
         e-points (into {} (map (fn [[edge e-faces]]
                                  [edge (get-e-point edge e-faces f-points)])
-                               edge-map))
+                               edge-faces-map))
         v-points (into {} (map (fn [vertex]
                                  [vertex (get-v-point mesh vertex)])
                                verts))
