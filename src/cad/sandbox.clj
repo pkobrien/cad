@@ -52,7 +52,7 @@
    (time (save "test-color-spore" (-> (spore 4) (op/colorize (colorer)))))
    colorer))
 
-;(time (save "test-color-spore" (-> (spore 3) (op/colorize (mc/normal-abs-rgb)))))
+;(time (save "test-color-spore" (-> (spore 5) (op/colorize (mc/normal-abs-rgb)))))
 
 (comment (test-colorer mc/normal-sum-hue))
 
