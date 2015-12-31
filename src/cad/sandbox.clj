@@ -35,7 +35,7 @@
 (defn spore [cc]
   (-> (mm/dodeca 10)
       (op/rep op/ambo 3)
-      (mm/prn-side-count)
+      (mm/prn-sides-count)
       (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark cc)
       (op/tess)
@@ -60,18 +60,20 @@
 ; ==============================================================================
 ; Operator Tests
 
-(defn ambo-01 [mesh]
+(defn ambo-01 [mesh cc]
   (-> mesh
       (op/rep op/ambo 3)
-      (mm/prn-side-count)
+      (mm/prn-sides-count)
       (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
-      (op/rep op/catmull-clark 4)
+      (op/rep op/catmull-clark cc)
       (op/tess)
       (op/colorize (mc/normal-mod1-rgb))
-      (op/rep #(op/colorize % (mc/blend-with-vertex-only-neighbors 0.1)) 3)
-      (mm/prn-face-count)))
+      ;(op/rep #(op/colorize % (mc/blend-with-vertex-only-neighbors 0.1)) 3)
+      ;(op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.1)) 3)
+      (op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.1)) 3)
+      (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "ambo-01" (ambo-01 (mm/dodeca 10))))
+(time (save "ambo-01" (ambo-01 (mm/dodeca 10) 3)))
 
 (defn ambo-02 []
   (-> (mm/dodeca 10)
@@ -86,9 +88,9 @@
 (defn ambo-03 []
   (-> (mm/dodeca 10)
       (op/rep op/ambo 3)
-      (mm/prn-side-count)
+      (mm/prn-sides-count)
       (op/kis (mm/get-point-at-edge-count-height {4 -0.75, 5 -7.0}))
-      (mm/prn-side-count)
+      (mm/prn-sides-count)
       (op/rep op/catmull-clark 3)
       ;(op/colorize)
       (op/colorize (mc/normal-abs-rgb))
@@ -205,7 +207,7 @@
 
 ;(time (save "skel-01" (skel-01 (mm/octa 10) 3)))
 
-(defn skel-03 [mesh]
+(defn skel-03 [mesh cc]
   (let [original-faces (:faces mesh)
         windows #{(last original-faces)}
         get-v (fn [mesh min-area height]
@@ -228,16 +230,16 @@
                  (op/skeletonize
                    :thickness 2
                    :get-f-factor (fn [_ face] (when (original-faces face) 0.1)))
-                 (op/rep op/catmull-clark 3)
+                 (op/rep op/catmull-clark cc)
                  ;(op/kis)
                  (kis 0.2 -0.05)
                  (op/colorize (mc/normal-abs-rgb) (mc/cb col/invert))
-                 (mm/prn-face-count))]
+                 (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "skel-03" (skel-03 (mm/dodeca 20))))
+;(time (save "skel-03" (skel-03 (mm/dodeca 20) 3)))
 
-(defn skel-04 []
+(defn skel-04 [cc]
   (let [mesh (mm/hexa 10)
         [wf sf ff nf bf ef] (sort (:faces mesh))
         mesh (-> mesh
@@ -249,15 +251,15 @@
                    :thickness 2
                    :get-f-factor (fn [_ face]
                                    (when (#{ef wf ff bf} face) 0.25)))
-                 (op/rep op/catmull-clark 3)
+                 (op/rep op/catmull-clark cc)
                  (op/tess)
-                 (op/colorize (mc/normal-abs-rgb) (mc/cb col/invert))
-                 (mm/prn-face-count))]
+                 (op/colorize (mc/circumference) (mc/cb col/invert))
+                 (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "skel-04" (skel-04)))
+;(time (save "skel-04" (skel-04 3)))
 
-(defn skel-05 []
+(defn skel-05 [cc]
   (let [mesh (mm/hexa 10)
         [wf sf ff nf bf ef] (sort (:faces mesh))
         normals (set (map mm/ortho-normal #{ef wf ff bf}))
@@ -270,88 +272,87 @@
                    :thickness 1
                    :get-f-factor (fn [_ face]
                                    (when (normals (mm/ortho-normal face)) 0.1)))
-                 (op/rep op/catmull-clark 3)
+                 (op/rep op/catmull-clark cc)
                  (op/tess)
                  (op/colorize (mc/circumference) (mc/cb col/invert))
-                 (mm/prn-face-count))]
+                 (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "skel-05" (skel-05)))
+;(time (save "skel-05" (skel-05 3)))
 
-(defn skel-06 []
+(defn skel-06 [cc]
   (let [mesh (-> (mm/dodeca 10)
                  (op/rep op/ambo 2)
-                 (mm/prn-side-count))
+                 (mm/prn-sides-count))
         original-faces (:faces mesh)
         mesh (-> mesh
                  (op/skeletonize
                    :thickness 5
                    :get-f-factor (fn [_ face] (when (#{5} (count face)) 0.0)))
-                 (mm/prn-side-count)
+                 (mm/prn-sides-count)
                  (op/skeletonize
                    :thickness 0.5
                    :get-f-factor (fn [_ face] (if (original-faces face)
                                                 (when (#{3} (count face)) 0.0)
                                                 (when (#{4} (count face)) 0.25))))
-                 (mm/prn-side-count)
-                 (op/rep op/catmull-clark 2)
+                 (mm/prn-sides-count)
+                 (op/rep op/catmull-clark cc)
                  (op/tess)
                  ;(op/colorize (mc/kitchen-sink))
                  (op/colorize (mc/circumference))
-                 (op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.2)) 3)
-                 (mm/prn-face-count))]
+                 ;(op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.2)) 3)
+                 (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "skel-06" (skel-06)))
+;(time (save "skel-06" (skel-06 2)))
 
-(defn skel-07 []
-  (-> (mm/icosa 10)
+(defn skel-07 [mesh cc]
+  (-> mesh
       (op/skeletonize
         :thickness 1
         :get-f-factor (fn [{:keys [faces]} face]
                         (when (= (last faces) face) 0.5)))
       (op/complexify :f-factor 0.4 :v-factor 0.2)
-      (op/rep op/catmull-clark 2)
+      (op/rep op/catmull-clark cc)
       (op/kis)
-      (op/colorize (mc/area))
-      (mm/prn-face-count)))
+      ;(op/colorize (mc/area))
+      (op/colorize (mc/circumference))
+      (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "skel-07" (skel-07)))
+;(time (save "skel-07" (skel-07 (mm/icosa 10) 2)))
 
-(defn skel-08 []
-  (-> (mm/dodeca 10)
-      ;(mm/icosa 10)
+(defn skel-08 [mesh cc]
+  (-> mesh
       (op/skeletonize
         :thickness 1
         :get-f-factor (fn [{:keys [faces]} face]
                         (when (not= (last faces) face) 0.25)))
-      ;(op/complexify :f-factor 0.5 :v-factor 0.2)
-      (op/rep op/catmull-clark 3)
+      (op/rep op/catmull-clark cc)
       (op/kis)
-      (op/colorize (mc/area))
-      (mm/prn-face-count)))
+      (op/colorize (mc/circumference))
+      (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "skel-08" (skel-08)))
+;(time (save "skel-08" (skel-08 (mm/icosa 10) 2)))
 
-(defn skel-09 []
-  (-> (mm/dodeca 10)
+(defn skel-09 [mesh cc]
+  (-> mesh
       (op/skeletonize
         :thickness 1
         :get-f-factor (fn [{:keys [faces]} face]
                         (when ((set (take 9 faces)) face) 0.5)))
-      (op/rep op/catmull-clark 3)
+      (op/rep op/catmull-clark cc)
       (op/kis)
       (op/colorize (mc/area))
-      (mm/prn-face-count)))
+      (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "skel-09" (skel-09)))
+;(time (save "skel-09" (skel-09 (mm/dodeca 10) 3)))
 
-(defn davinci [mesh]
+(defn davinci [mesh cc]
   (let [mesh (-> mesh
-                 (mm/prn-face-count "Mesh") (mm/prn-side-count)
+                 (mm/prn-face-count "Mesh") (mm/prn-sides-count)
 
                  (op/complexify :f-factor 0.4 :v-factor -0.2)
-                 (mm/prn-face-count "Complexify") (mm/prn-side-count))
+                 (mm/prn-face-count "Complexify") (mm/prn-sides-count))
         complex-faces (:faces mesh)
         mesh (-> mesh
                  (op/kis (mm/get-point-at-edge-count-height {4 +2}))
@@ -360,23 +361,25 @@
                    :thickness 0.5
                    :get-f-factor (fn [_ face]
                                    (when (#{3} (count face)) 0.1)))
-                 (mm/prn-face-count "Skeletonize") (mm/prn-side-count)
+                 (mm/prn-face-count "Skeletonize") (mm/prn-sides-count)
 
-                 (op/rep op/catmull-clark 3) (mm/prn-face-count "CC") (mm/prn-side-count)
+                 (op/rep op/catmull-clark cc)
+                 (mm/prn-face-count "CC") (mm/prn-sides-count)
 
                  ;(op/kis (mm/get-v-height 0.05)) (mm/prn-fev "Kis")
 
                  (op/tess) (mm/prn-face-count "Tess")
 
-                 (op/colorize mc/kitchen-sink)
-                 (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
-                 (mm/prn-face-count))]
+                 (op/colorize)
+                 ;(op/colorize (mc/kitchen-sink))
+                 ;(op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
+                 (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "davinci-tetra-01" (davinci (mm/tetra 10))))
 ;(time (save "davinci-hexa-01" (davinci (mm/hexa 10))))
 ;(time (save "davinci-octa-01" (davinci (mm/octa 10))))
-;(time (save "davinci-dodeca-01" (davinci (mm/dodeca 10))))
+;(time (save "davinci-dodeca-01" (davinci (mm/dodeca 10) 3)))
 ;(time (save "davinci-icosa-01" (davinci (mm/icosa 10))))
 
 (defn rainkis-half [mesh height]

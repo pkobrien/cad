@@ -93,10 +93,11 @@
    (prn (string/join " " [msg "Face-Count:" (count (gc/faces mesh))]))
    mesh))
 
-(defn prn-side-count
+(defn prn-sides-count
   [mesh]
   (prn (string/join " " ["Sides-Count:"
-                         (frequencies (map count (gc/faces mesh)))]))
+                         (into (sorted-map)
+                               (frequencies (map count (gc/faces mesh))))]))
   mesh)
 
 (defmacro spy [x]
