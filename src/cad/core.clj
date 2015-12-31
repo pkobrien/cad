@@ -2,12 +2,10 @@
   (:refer-clojure :exclude [import use])
   (:require [scad-clj.model :refer :all]
             [scad-clj.write :refer [write-scad]]
-            [thi.ng.geom.core :as g]
             [clojure.java.io :as io]
-            [thi.ng.geom.mesh.io :as mio]
             [clj-time.format :as tf]
             [clj-time.core :as time]
-            [cad.x3d :as x3d]))
+            [cad.mesh.x3d :as x3d]))
 
 
 (defn cartesian-product
@@ -18,14 +16,7 @@
 
 
 ; ==============================================================================
-; Thi.ng
-
-(defn save-stl
-  [path mesh]
-  (with-open [out (io/output-stream path)]
-    (mio/write-stl
-      (mio/wrapped-output-stream out)
-      (g/tessellate mesh))))
+; Mesh
 
 (defn save-x3d
   [path mesh & {:keys [indent?] :or {indent? false}}]

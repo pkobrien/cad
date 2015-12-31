@@ -68,12 +68,12 @@
       (op/rep op/catmull-clark cc)
       (op/tess)
       (op/colorize (mc/normal-mod1-rgb))
-      ;(op/rep #(op/colorize % (mc/blend-with-vertex-only-neighbors 0.1)) 3)
+      (op/rep #(op/colorize % (mc/blend-with-vertex-only-neighbors 0.1)) 3)
       ;(op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.1)) 3)
-      (op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.1)) 3)
+      ;(op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.1)) 3)
       (mm/prn-face-count (str "CC:" cc))))
 
-(time (save "ambo-01" (ambo-01 (mm/dodeca 10) 3)))
+;(time (save "ambo-01" (ambo-01 (mm/dodeca 10) 3)))
 
 (defn ambo-02 []
   (-> (mm/dodeca 10)

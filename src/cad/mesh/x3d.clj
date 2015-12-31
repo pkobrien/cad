@@ -1,4 +1,4 @@
-(ns cad.x3d
+(ns cad.mesh.x3d
   (:require [thi.ng.geom.core :as gc]
             [cad.mesh.core :as mm]
             [clojure.string :as string]
