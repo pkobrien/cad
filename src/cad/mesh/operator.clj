@@ -1,4 +1,4 @@
-(ns cad.mesh.ops
+(ns cad.mesh.operator
   (:require [clojure.set]
             [thi.ng.geom.core :as gc]
             [thi.ng.geom.core.utils :as gu]

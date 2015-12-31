@@ -5,7 +5,7 @@
             [cad.mesh.color :as mc]
             [thi.ng.math.core :as math]
             [cad.mesh.core :as mm]
-            [cad.mesh.ops :as op]
+            [cad.mesh.operator :as op]
             [cad.mesh.polyhedron :as ph]))
 
 

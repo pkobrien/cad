@@ -3,7 +3,8 @@
             [thi.ng.color.core :as col]
             [cad.mesh.color :as mc]
             [cad.mesh.core :as mm]
-            [cad.mesh.ops :as op]))
+            [cad.mesh.operator :as op]
+            [cad.mesh.polyhedron :as ph]))
 
 
 (defn save [name mesh]
@@ -15,7 +16,7 @@
 ; Designs uploaded to Shapeways
 
 (defn spore []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
       (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
@@ -30,7 +31,7 @@
 ;(time (save "alien-spore" (alien-spore)))
 
 (defn alien-skel []
-  (let [mesh (-> (mm/dodeca 10)
+  (let [mesh (-> (ph/dodeca 10)
                  (op/complexify :f-factor 0.2 :v-factor 0.2))
         complex-faces (:faces mesh)
         mesh (-> mesh
@@ -51,7 +52,7 @@
 ;(time (save "alien-skel" (alien-skel)))
 
 (defn hexa-kis-cc3-kis "http://shpws.me/L0c3" []
-  (-> (mm/hexa 10)
+  (-> (ph/hexa 10)
       (op/kis (mm/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
       (op/kis (mm/get-point-at-height -0.25))
@@ -72,11 +73,11 @@
 ;(time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
 
 (comment
-  (time (save "plutonic-2-tetra" (plutonic (mm/tetra 12))))
-  (time (save "plutonic-2-hexa" (plutonic (mm/hexa 10))))
-  (time (save "plutonic-2-octa" (plutonic (mm/octa 8))))
-  (time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
-  (time (save "plutonic-2-icosa" (plutonic (mm/icosa 7.5))))
+  (time (save "plutonic-2-tetra" (plutonic (ph/tetra 12))))
+  (time (save "plutonic-2-hexa" (plutonic (ph/hexa 10))))
+  (time (save "plutonic-2-octa" (plutonic (ph/octa 8))))
+  (time (save "plutonic-2-dodeca" (plutonic (ph/dodeca 7))))
+  (time (save "plutonic-2-icosa" (plutonic (ph/icosa 7.5))))
   )
 
 (defn smooth-kis [mesh height]
@@ -92,11 +93,11 @@
       (op/colorize (mc/normal-abs-rgb))))
 
 (comment
-  (time (save "rainkis-tetra" (rainkis (mm/tetra 12) 12)))
-  (time (save "rainkis-hexa" (rainkis (mm/hexa 10) 10)))
-  (time (save "rainkis-octa" (rainkis (mm/octa 8) 8)))
-  (time (save "rainkis-dodeca" (rainkis (mm/dodeca 7) 5)))
-  (time (save "rainkis-icosa" (rainkis (mm/icosa 7.5) 5)))
+  (time (save "rainkis-tetra" (rainkis (ph/tetra 12) 12)))
+  (time (save "rainkis-hexa" (rainkis (ph/hexa 10) 10)))
+  (time (save "rainkis-octa" (rainkis (ph/octa 8) 8)))
+  (time (save "rainkis-dodeca" (rainkis (ph/dodeca 7) 5)))
+  (time (save "rainkis-icosa" (rainkis (ph/icosa 7.5) 5)))
   )
 
 (defn custom [mesh]
@@ -105,9 +106,9 @@
       (op/colorize (mc/normal-sum-mod1-hue))
       ))
 
-;(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (mm/dodeca 7) 5))))
+;(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (ph/dodeca 7) 5))))
 
 (comment
-  (time (def mesh-skd (smooth-kis (mm/dodeca 7) 5)))
+  (time (def mesh-skd (smooth-kis (ph/dodeca 7) 5)))
   (time (save "smooth-kis-custom-dodeca" (custom mesh-skd)))
   )
