@@ -3,6 +3,7 @@
             [thi.ng.color.core :as col]
             [cad.mesh.face-color :as fc]
             [cad.mesh.core :as mc]
+            [cad.mesh.util :as mu]
             [cad.mesh.operator :as op]
             [cad.mesh.polyhedron :as ph]))
 
@@ -21,7 +22,7 @@
       (op/kis (mc/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
       (op/tess)
-      (mc/prn-face-count "Final")))
+      (mu/prn-face-count)))
 
 (defn alien-spore []
   (-> (spore)
@@ -44,9 +45,9 @@
                                      0.1)))
                  (op/rep op/catmull-clark 3)
                  (op/tess)
-                 (op/color-faces (fc/normal-abs-rgb) (fc/cb col/invert))
+                 (op/color-faces (fc/normal-abs-rgb) (mu/color-mod col/invert))
                  (op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.25)) 1)
-                 (mc/prn-face-count "Final"))]
+                 (mu/prn-face-count))]
     mesh))
 
 ;(time (save "alien-skel" (alien-skel)))
@@ -68,7 +69,9 @@
                                       (when (#{4} (count face)) 0.25)))
       (op/rep op/catmull-clark 3)
       (op/tess)
-      (op/color-faces (fc/area) (fc/cb #(-> % (col/rotate-hue 60) (col/invert))))))
+      (op/color-faces (fc/area) (mu/color-mod #(-> %
+                                                   (col/rotate-hue 60)
+                                                   (col/invert))))))
 
 ;(time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
 
@@ -85,7 +88,7 @@
       (op/kis (mc/get-point-at-height height))
       (op/rep op/catmull-clark 3)
       (op/kis (mc/get-point-at-height -0.25))
-      (mc/prn-face-count "Final")))
+      (mu/prn-face-count)))
 
 (defn rainkis [mesh height]
   (-> mesh

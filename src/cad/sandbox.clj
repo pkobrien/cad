@@ -5,6 +5,7 @@
             [cad.mesh.face-color :as fc]
             [thi.ng.math.core :as math]
             [cad.mesh.core :as mc]
+            [cad.mesh.util :as mu]
             [cad.mesh.operator :as op]
             [cad.mesh.polyhedron :as ph]))
 
@@ -22,7 +23,7 @@
       (op/kis (mc/get-point-at-height height))
       (op/rep op/catmull-clark cc)
       (op/kis (mc/get-point-at-height -0.25))
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 (defn smooth [cc]
   (smooth-kis (ph/hexa 10) 10 cc))
@@ -31,16 +32,16 @@
   (-> (ph/hexa 10)
       (op/rep op/catmull-clark cc)
       (op/kis)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 (defn spore [cc]
   (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
-      (mc/prn-sides-count)
+      (mu/prn-sides-count)
       (op/kis (mc/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark cc)
       (op/tess)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 
 ; ==============================================================================
@@ -53,7 +54,7 @@
    (time (save "test-color-spore" (-> (spore 4) (op/color-faces (colorer)))))
    colorer))
 
-;(time (save "test-color-spore" (-> (spore 5) (op/colorize (mc/normal-abs-rgb)))))
+;(time (save "test-color-spore" (-> (spore 5) (op/color-faces (fc/normal-abs-rgb)))))
 
 (comment (test-colorer fc/normal-sum-hue))
 
@@ -64,15 +65,15 @@
 (defn ambo-01 [mesh cc]
   (-> mesh
       (op/rep op/ambo 3)
-      (mc/prn-sides-count)
+      (mu/prn-sides-count)
       (op/kis (mc/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark cc)
       (op/tess)
       (op/color-faces (fc/normal-mod1-rgb))
       (op/rep #(op/color-faces % (fc/blend-with-vertex-only-neighbors 0.1)) 3)
-      ;(op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.1)) 3)
-      ;(op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.1)) 3)
-      (mc/prn-face-count (str "CC:" cc))))
+      ;(op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.1)) 3)
+      ;(op/rep #(op/color-faces % (fc/blend-with-vertex-neighbors 0.1)) 3)
+      (mu/prn-face-count (str "CC:" cc))))
 
 ;(time (save "ambo-01" (ambo-01 (ph/dodeca 10) 3)))
 
@@ -82,21 +83,20 @@
       (op/kis (mc/get-point-at-edge-count-height {5 3.0}))
       (op/kis (mc/get-point-at-edge-count-height {3 -0.05, 4 -0.05}))
       (op/color-faces (fc/area))
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "ambo-02" (ambo-02)))
 
 (defn ambo-03 []
   (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
-      (mc/prn-sides-count)
+      (mu/prn-sides-count)
       (op/kis (mc/get-point-at-edge-count-height {4 -0.75, 5 -7.0}))
-      (mc/prn-sides-count)
+      (mu/prn-sides-count)
       (op/rep op/catmull-clark 3)
-      ;(op/colorize)
       (op/color-faces (fc/normal-abs-rgb))
       (op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.25)) 12)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "ambo-03" (ambo-03)))
 
@@ -107,7 +107,7 @@
       (op/complexify :f-factor 0.1 :v-factor 0.75)
       (op/tess)
       (op/color-faces)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "complexify-01" (complexify-01)))
 
@@ -118,7 +118,7 @@
       (op/complexify :f-factor 0.5 :v-factor 0.25)
       (op/kis (mc/get-point-at-height -0.2))
       (op/color-faces)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "complexify-02" (complexify-02)))
 
@@ -130,7 +130,7 @@
       (op/tess)
       (op/color-faces)
       (op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.25)) 6)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "complexify-03" (complexify-03)))
 
@@ -142,7 +142,7 @@
       (op/rep op/catmull-clark 2)
       (op/tess)
       (op/color-faces)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "kis-01" (kis-01)))
 
@@ -152,7 +152,7 @@
       (op/rep op/catmull-clark 3)
       (op/kis (mc/get-point-at-height -1))
       (op/color-faces (fc/normal-abs-rgb))
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "kis-02" (kis-02)))
 
@@ -161,8 +161,8 @@
       (op/kis (mc/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
       (op/kis (mc/get-point-at-height 0.05))
-      (op/color-faces (fc/normal-abs-rgb) (fc/cb col/invert))
-      (mc/prn-face-count)))
+      (op/color-faces (fc/normal-abs-rgb) (mu/color-mod col/invert))
+      (mu/prn-face-count)))
 
 ;(time (save "kis-03" (kis-03)))
 
@@ -174,18 +174,17 @@
       (op/rep op/catmull-clark 3)
       (op/tess)
       (op/color-faces)
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "kis-04" (kis-04)))
 
 (defn ortho-01 []
   (-> (ph/dodeca 10)
       (op/ortho (mc/get-point-at-height 0))
-      ;(op/ortho (mm/get-v-edge-count-height {3 -0.2, 4 +2, 5 -7}))
       (op/rep op/catmull-clark 2)
       (op/tess)
       (op/color-faces (fc/normal-abs-rgb))
-      (mc/prn-face-count)))
+      (mu/prn-face-count)))
 
 ;(time (save "ortho-01" (ortho-01)))
 
@@ -203,7 +202,7 @@
                  ;(op/tess)
                  (op/kis)
                  (op/color-faces)
-                 (mc/prn-face-count (str "CC:" cc)))]
+                 (mu/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "skel-01" (skel-01 (ph/octa 10) 3)))
@@ -234,8 +233,8 @@
                  (op/rep op/catmull-clark cc)
                  ;(op/kis)
                  (kis 0.2 -0.05)
-                 (op/color-faces (fc/normal-abs-rgb) (fc/cb col/invert))
-                 (mc/prn-face-count (str "CC:" cc)))]
+                 (op/color-faces (fc/normal-abs-rgb) (mu/color-mod col/invert))
+                 (mu/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "skel-03" (skel-03 (ph/dodeca 20) 3)))
@@ -254,8 +253,8 @@
                                    (when (#{ef wf ff bf} face) 0.25)))
                  (op/rep op/catmull-clark cc)
                  (op/tess)
-                 (op/color-faces (fc/circumference) (fc/cb col/invert))
-                 (mc/prn-face-count (str "CC:" cc)))]
+                 (op/color-faces (fc/circumference) (mu/color-mod col/invert))
+                 (mu/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "skel-04" (skel-04 3)))
@@ -267,7 +266,7 @@
         mesh (-> mesh
                  (op/skeletonize
                    :thickness 4
-                   :get-f-factor (fn [{:keys [faces]} face]
+                   :get-f-factor (fn [_ face]
                                    (when (#{nf sf} face) 0.5)))
                  (op/skeletonize
                    :thickness 1
@@ -275,8 +274,8 @@
                                    (when (normals (mc/ortho-normal face)) 0.1)))
                  (op/rep op/catmull-clark cc)
                  (op/tess)
-                 (op/color-faces (fc/circumference) (fc/cb col/invert))
-                 (mc/prn-face-count (str "CC:" cc)))]
+                 (op/color-faces (fc/circumference) (mu/color-mod col/invert))
+                 (mu/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "skel-05" (skel-05 3)))
@@ -284,25 +283,23 @@
 (defn skel-06 [cc]
   (let [mesh (-> (ph/dodeca 10)
                  (op/rep op/ambo 2)
-                 (mc/prn-sides-count))
+                 (mu/prn-sides-count))
         original-faces (:faces mesh)
         mesh (-> mesh
                  (op/skeletonize
                    :thickness 5
                    :get-f-factor (fn [_ face] (when (#{5} (count face)) 0.0)))
-                 (mc/prn-sides-count)
+                 (mu/prn-sides-count)
                  (op/skeletonize
                    :thickness 0.5
                    :get-f-factor (fn [_ face] (if (original-faces face)
                                                 (when (#{3} (count face)) 0.0)
                                                 (when (#{4} (count face)) 0.25))))
-                 (mc/prn-sides-count)
+                 (mu/prn-sides-count)
                  (op/rep op/catmull-clark cc)
                  (op/tess)
-                 ;(op/colorize (mc/kitchen-sink))
                  (op/color-faces (fc/circumference))
-                 ;(op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.2)) 3)
-                 (mc/prn-face-count (str "CC:" cc)))]
+                 (mu/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "skel-06" (skel-06 2)))
@@ -316,9 +313,8 @@
       (op/complexify :f-factor 0.4 :v-factor 0.2)
       (op/rep op/catmull-clark cc)
       (op/kis)
-      ;(op/colorize (mc/area))
       (op/color-faces (fc/circumference))
-      (mc/prn-face-count (str "CC:" cc))))
+      (mu/prn-face-count (str "CC:" cc))))
 
 ;(time (save "skel-07" (skel-07 (ph/icosa 10) 2)))
 
@@ -331,7 +327,7 @@
       (op/rep op/catmull-clark cc)
       (op/kis)
       (op/color-faces (fc/circumference))
-      (mc/prn-face-count (str "CC:" cc))))
+      (mu/prn-face-count (str "CC:" cc))))
 
 ;(time (save "skel-08" (skel-08 (ph/icosa 10) 2)))
 
@@ -344,16 +340,16 @@
       (op/rep op/catmull-clark cc)
       (op/kis)
       (op/color-faces (fc/area))
-      (mc/prn-face-count (str "CC:" cc))))
+      (mu/prn-face-count (str "CC:" cc))))
 
 ;(time (save "skel-09" (skel-09 (ph/dodeca 10) 3)))
 
 (defn davinci [mesh cc]
   (let [mesh (-> mesh
-                 (mc/prn-face-count "Mesh") (mc/prn-sides-count)
+                 (mu/prn-face-count "Mesh") (mu/prn-sides-count)
 
                  (op/complexify :f-factor 0.4 :v-factor -0.2)
-                 (mc/prn-face-count "Complexify") (mc/prn-sides-count))
+                 (mu/prn-face-count "Complexify") (mu/prn-sides-count))
         complex-faces (:faces mesh)
         mesh (-> mesh
                  (op/kis (mc/get-point-at-edge-count-height {4 +2}))
@@ -362,19 +358,15 @@
                    :thickness 0.5
                    :get-f-factor (fn [_ face]
                                    (when (#{3} (count face)) 0.1)))
-                 (mc/prn-face-count "Skeletonize") (mc/prn-sides-count)
+                 (mu/prn-face-count "Skeletonize") (mu/prn-sides-count)
 
                  (op/rep op/catmull-clark cc)
-                 (mc/prn-face-count "CC") (mc/prn-sides-count)
+                 (mu/prn-face-count "CC") (mu/prn-sides-count)
 
-                 ;(op/kis (mm/get-v-height 0.05)) (mm/prn-fev "Kis")
-
-                 (op/tess) (mc/prn-face-count "Tess")
+                 (op/tess) (mu/prn-face-count "Tess")
 
                  (op/color-faces)
-                 ;(op/colorize (mc/kitchen-sink))
-                 ;(op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
-                 (mc/prn-face-count (str "CC:" cc)))]
+                 (mu/prn-face-count (str "CC:" cc)))]
     mesh))
 
 ;(time (save "davinci-tetra-01" (davinci (ph/tetra 10))))
@@ -398,7 +390,7 @@
                  (op/rep op/catmull-clark 3)
                  (op/kis (mc/get-point-at-height -0.25))
                  (op/color-faces (fc/normal-abs-rgb))
-                 (mc/prn-face-count))]
+                 (mu/prn-face-count))]
     mesh))
 
 ;(time (save "rainkis-half-octa" (rainkis-half (ph/octa 8) 8)))
@@ -419,7 +411,7 @@
                  (op/rep op/catmull-clark 3)
                  (op/kis (mc/get-point-at-height -0.25))
                  (op/color-faces (fc/normal-abs-rgb))
-                 (mc/prn-face-count))]
+                 (mu/prn-face-count))]
     mesh))
 
 (comment
@@ -437,9 +429,8 @@
 ;  (-> mesh
 ;      (op/skeletonize :thickness 0.5 :get-f-factor (fn [mesh face] 0.2))
 ;      (op/kis)
-;      (op/calc-face-area-map)
-;      (op/colorize)
-;      (mm/prn-fev)))
+;      (op/color-faces)
+;      (mu/prn-face-count)))
 ;
 ;(defn davinci-01 []
 ;  (-> (ph/hexa 10)
@@ -448,16 +439,3 @@
 ;(def test-mesh (skel-06))
 ;
 ;(time (save "development-01" test-mesh))
-
-
-#_(def foo (-> (ph/dodeca 10)
-               (mc/seed->mesh)
-               (op/skeletonize
-                 :thickness 2.0
-                 :get-f-factor (fn [{:keys [faces]} face]
-                                 (when (= face (last faces)) 0.5)))
-               (op/complexify :f-factor 0.5 :v-factor 0.25)))
-
-;(def foo (mm/seed->mesh (ph/hexa 10)))
-;(def bar (g/tessellate foo))
-;(def baz (op/compute-vertex-normals foo))

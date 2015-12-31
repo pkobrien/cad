@@ -6,7 +6,7 @@
             [thi.ng.geom.core :as gc]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
-            [clojure.string :as string]
+            [cad.mesh.util :as mu]
             [thi.ng.geom.triangle :as tr]
             [thi.ng.geom.core.vector :refer [vec3]]))
 
@@ -17,92 +17,11 @@
 (set-current-implementation :vectorz)
 
 
-; ==============================================================================
-; Shared Constants
-
-(def ^:const PI Math/PI)
-(def ^:const TAU (* PI 2.0))
-
-(def ^:const THREE-HALVES-PI (* PI 1.5))
-
-(def ^:const HALF-PI (/ PI 2.0))
-(def ^:const THIRD-PI (/ PI 3.0))
-(def ^:const QUARTER-PI (/ PI 4.0))
-(def ^:const SIXTH-PI (/ PI 6.0))
-
-(def ^:const DEG (/ 180.0 PI))
-(def ^:const RAD (/ PI 180.0))
-
-
-; ==============================================================================
-; Helper Functions
-
-;(defn abs [x]
-;  (Math/abs x))
-
-(defn abs-zero
-  [x]
-  (if (zero? x) 0.0 x))
-
-;(defn degrees [theta] (* (double theta) DEG))
-;
-;(defn radians [theta] (* (double theta) RAD))
-;
-;(defn clamp [min max x]
-;  (let [x (long x) min (long min) max (long max)]
-;    (if (< x min) min (if (> x max) max x))))
-;
-;(defn clamp-normalized [x]
-;  (let [x (double x)] (if (< x -1.0) -1.0 (if (> x 1.0) 1.0 x))))
-
-(defn round2
-  "Round a double to the given precision (number of significant digits)"
-  [precision d]
-  (let [factor (Math/pow 10 precision)]
-    (/ (Math/round (* d factor)) factor)))
-
-(def round2safe (partial round2 14))
-
-(defn hashmap-set
-  [keyvals]
-  (persistent!
-    (reduce
-      (fn [ret [k v]]
-        (assoc! ret k (conj (get ret k #{}) v)))
-      (transient {}) keyvals)))
-
 (defn ortho-normal
   ([[a b c]] (ortho-normal a b c))
   ([a b] (gc/normalize (gc/cross a b)))
-  ([a b c] (vec3 (mapv (comp round2safe abs-zero)
+  ([a b c] (vec3 (mapv (comp mu/round2safe mu/abs-zero)
                        (gc/normalize (gc/cross (gc/- b a) (gc/- c a)))))))
-
-(defn zipmapf [f coll]
-  (zipmap coll (map f coll)))
-
-
-; ==============================================================================
-; Printing/Debugging Helpers
-
-(defn prn-face-count
-  ([mesh]
-   (prn-face-count mesh "Mesh"))
-  ([mesh msg]
-   (prn (string/join " " [msg "Face-Count:" (count (gc/faces mesh))]))
-   mesh))
-
-(defn prn-sides-count
-  [mesh]
-  (prn (string/join " " ["Sides-Count:"
-                         (into (sorted-map)
-                               (frequencies (map count (gc/faces mesh))))]))
-  mesh)
-
-(defmacro spy [x]
-  `(let [x# ~x]
-     (println "<=" '~x "=>")
-     (println x#)
-     x#))
 
 
 ; ==============================================================================
@@ -127,19 +46,19 @@
     (-> (take 3 face) (ortho-normal) (gc/* height) (gc/+ point))))
 
 (defn get-face-centroid
-  [mesh face]
+  [_ face]
   (get-face-point face))
 
 (defn get-point-at-height
   "Returns a function that returns a face paoint based on the given height."
   [height]
-  (fn [mesh face]
+  (fn [_ face]
     (get-face-point face :height height)))
 
 (defn get-point-at-edge-count-height
   "Returns a function that returns a vertex based on the number of face sides."
   [edge-count-height-map]
-  (fn [mesh face]
+  (fn [_ face]
     (if-let [height (edge-count-height-map (count face))]
       (get-face-point face :height height))))
 
@@ -236,19 +155,19 @@
 
 (defn mesh-edge-faces-map
   [mesh]
-  (hashmap-set (mapcat edge-face-keyvals (gc/faces mesh))))
+  (mu/hashmap-set (mapcat edge-face-keyvals (gc/faces mesh))))
 
 (defn mesh-face-normal-map
   [mesh]
-  (zipmapf ortho-normal (gc/faces mesh)))
+  (mu/zipmapf ortho-normal (gc/faces mesh)))
 
 (defn mesh-vert-faces-map
   [mesh]
-  (hashmap-set (mapcat vert-face-keyvals (gc/faces mesh))))
+  (mu/hashmap-set (mapcat vert-face-keyvals (gc/faces mesh))))
 
 (defn mesh-vert-npfs-map
   [mesh]
-  (hashmap-set (mapcat vert-npf-keyvals (gc/faces mesh))))
+  (mu/hashmap-set (mapcat vert-npf-keyvals (gc/faces mesh))))
 
 (defn mesh-vert-normal-map
   [mesh]
@@ -260,7 +179,7 @@
                 (->> (vert-faces-map vert)
                      (transduce xf gc/+ (vec3))
                      (gc/normalize)))]
-    (zipmapf vnorm verts)))
+    (mu/zipmapf vnorm verts)))
 
 (defn mesh-vert-set
   [mesh]
