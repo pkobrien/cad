@@ -217,10 +217,10 @@
 ; Face Color Blending Functions
 
 (defn- blend-with-neighbors [f-neigh t mesh face]
-  (let [fcolors (:fcolors mesh)
-        old-color (col/rgba (fcolors face))
+  (let [face-color-map (:face-color-map mesh)
+        old-color (col/rgba (face-color-map face))
         neighbors (f-neigh mesh face)
-        neighbor-colors (mapv #(col/rgba (fcolors %)) neighbors)
+        neighbor-colors (mapv #(col/rgba (face-color-map %)) neighbors)
         blend #(col/blend %1 %2 t)
         color (reduce blend old-color neighbor-colors)]
     @color))
