@@ -5,7 +5,8 @@
             [cad.mesh.color :as mc]
             [thi.ng.math.core :as math]
             [cad.mesh.core :as mm]
-            [cad.mesh.ops :as op]))
+            [cad.mesh.ops :as op]
+            [cad.mesh.polyhedron :as ph]))
 
 
 (defn save [name mesh]
@@ -24,16 +25,16 @@
       (mm/prn-face-count)))
 
 (defn smooth [cc]
-  (smooth-kis (mm/hexa 10) 10 cc))
+  (smooth-kis (ph/hexa 10) 10 cc))
 
 (defn sphere [cc]
-  (-> (mm/hexa 10)
+  (-> (ph/hexa 10)
       (op/rep op/catmull-clark cc)
       (op/kis)
       (mm/prn-face-count)))
 
 (defn spore [cc]
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
       (mm/prn-sides-count)
       (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
@@ -73,10 +74,10 @@
       ;(op/rep #(op/colorize % (mc/blend-with-vertex-neighbors 0.1)) 3)
       (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "ambo-01" (ambo-01 (mm/dodeca 10) 3)))
+;(time (save "ambo-01" (ambo-01 (ph/dodeca 10) 3)))
 
 (defn ambo-02 []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
       (op/kis (mm/get-point-at-edge-count-height {5 3.0}))
       (op/kis (mm/get-point-at-edge-count-height {3 -0.05, 4 -0.05}))
@@ -86,7 +87,7 @@
 ;(time (save "ambo-02" (ambo-02)))
 
 (defn ambo-03 []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
       (mm/prn-sides-count)
       (op/kis (mm/get-point-at-edge-count-height {4 -0.75, 5 -7.0}))
@@ -100,7 +101,7 @@
 ;(time (save "ambo-03" (ambo-03)))
 
 (defn complexify-01 []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/complexify :f-factor 0.4 :v-factor 0.25)
       (op/complexify :f-factor 0.2 :v-factor 0.50)
       (op/complexify :f-factor 0.1 :v-factor 0.75)
@@ -111,7 +112,7 @@
 ;(time (save "complexify-01" (complexify-01)))
 
 (defn complexify-02 []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/complexify :f-factor 0.5 :v-factor 0.25)
       (op/kis (mm/get-point-at-edge-count-height {3 -0.1, 4 +2, 5 -7}))
       (op/complexify :f-factor 0.5 :v-factor 0.25)
@@ -122,7 +123,7 @@
 ;(time (save "complexify-02" (complexify-02)))
 
 (defn complexify-03 []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/complexify :f-factor 0.25 :v-factor 0.25)
       (op/kis (mm/get-point-at-edge-count-height {4 +3, 5 -7}))
       (op/complexify :f-factor 0.5 :v-factor 0.25)
@@ -134,7 +135,7 @@
 ;(time (save "complexify-03" (complexify-03)))
 
 (defn kis-01 []
-  (-> (mm/hexa 10)
+  (-> (ph/hexa 10)
       (op/kis (mm/get-point-at-height 5))
       (op/catmull-clark)
       (op/kis (mm/get-point-at-height -2))
@@ -146,7 +147,7 @@
 ;(time (save "kis-01" (kis-01)))
 
 (defn kis-02 []
-  (-> (mm/hexa 10)
+  (-> (ph/hexa 10)
       (op/kis (mm/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
       (op/kis (mm/get-point-at-height -1))
@@ -156,7 +157,7 @@
 ;(time (save "kis-02" (kis-02)))
 
 (defn kis-03 []
-  (-> (mm/icosa 10)
+  (-> (ph/icosa 10)
       (op/kis (mm/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
       (op/kis (mm/get-point-at-height 0.05))
@@ -166,7 +167,7 @@
 ;(time (save "kis-03" (kis-03)))
 
 (defn kis-04 []
-  (-> (mm/octa 10)
+  (-> (ph/octa 10)
       (op/ortho (mm/get-point-at-height 5))
       (op/catmull-clark)
       (op/kis (mm/get-point-at-height -2))
@@ -178,7 +179,7 @@
 ;(time (save "kis-04" (kis-04)))
 
 (defn ortho-01 []
-  (-> (mm/dodeca 10)
+  (-> (ph/dodeca 10)
       (op/ortho (mm/get-point-at-height 0))
       ;(op/ortho (mm/get-v-edge-count-height {3 -0.2, 4 +2, 5 -7}))
       (op/rep op/catmull-clark 2)
@@ -205,7 +206,7 @@
                  (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "skel-01" (skel-01 (mm/octa 10) 3)))
+;(time (save "skel-01" (skel-01 (ph/octa 10) 3)))
 
 (defn skel-03 [mesh cc]
   (let [original-faces (:faces mesh)
@@ -237,10 +238,10 @@
                  (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "skel-03" (skel-03 (mm/dodeca 20) 3)))
+;(time (save "skel-03" (skel-03 (ph/dodeca 20) 3)))
 
 (defn skel-04 [cc]
-  (let [mesh (mm/hexa 10)
+  (let [mesh (ph/hexa 10)
         [wf sf ff nf bf ef] (sort (:faces mesh))
         mesh (-> mesh
                  (op/skeletonize
@@ -260,7 +261,7 @@
 ;(time (save "skel-04" (skel-04 3)))
 
 (defn skel-05 [cc]
-  (let [mesh (mm/hexa 10)
+  (let [mesh (ph/hexa 10)
         [wf sf ff nf bf ef] (sort (:faces mesh))
         normals (set (map mm/ortho-normal #{ef wf ff bf}))
         mesh (-> mesh
@@ -281,7 +282,7 @@
 ;(time (save "skel-05" (skel-05 3)))
 
 (defn skel-06 [cc]
-  (let [mesh (-> (mm/dodeca 10)
+  (let [mesh (-> (ph/dodeca 10)
                  (op/rep op/ambo 2)
                  (mm/prn-sides-count))
         original-faces (:faces mesh)
@@ -319,7 +320,7 @@
       (op/colorize (mc/circumference))
       (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "skel-07" (skel-07 (mm/icosa 10) 2)))
+;(time (save "skel-07" (skel-07 (ph/icosa 10) 2)))
 
 (defn skel-08 [mesh cc]
   (-> mesh
@@ -332,7 +333,7 @@
       (op/colorize (mc/circumference))
       (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "skel-08" (skel-08 (mm/icosa 10) 2)))
+;(time (save "skel-08" (skel-08 (ph/icosa 10) 2)))
 
 (defn skel-09 [mesh cc]
   (-> mesh
@@ -345,7 +346,7 @@
       (op/colorize (mc/area))
       (mm/prn-face-count (str "CC:" cc))))
 
-;(time (save "skel-09" (skel-09 (mm/dodeca 10) 3)))
+;(time (save "skel-09" (skel-09 (ph/dodeca 10) 3)))
 
 (defn davinci [mesh cc]
   (let [mesh (-> mesh
@@ -376,11 +377,11 @@
                  (mm/prn-face-count (str "CC:" cc)))]
     mesh))
 
-;(time (save "davinci-tetra-01" (davinci (mm/tetra 10))))
-;(time (save "davinci-hexa-01" (davinci (mm/hexa 10))))
-;(time (save "davinci-octa-01" (davinci (mm/octa 10))))
-;(time (save "davinci-dodeca-01" (davinci (mm/dodeca 10) 3)))
-;(time (save "davinci-icosa-01" (davinci (mm/icosa 10))))
+;(time (save "davinci-tetra-01" (davinci (ph/tetra 10))))
+;(time (save "davinci-hexa-01" (davinci (ph/hexa 10))))
+;(time (save "davinci-octa-01" (davinci (ph/octa 10))))
+;(time (save "davinci-dodeca-01" (davinci (ph/dodeca 10) 3)))
+;(time (save "davinci-icosa-01" (davinci (ph/icosa 10))))
 
 (defn rainkis-half [mesh height]
   (let [window (first (:faces mesh))
@@ -400,7 +401,7 @@
                  (mm/prn-face-count))]
     mesh))
 
-;(time (save "rainkis-half-octa" (rainkis-half (mm/octa 8) 8)))
+;(time (save "rainkis-half-octa" (rainkis-half (ph/octa 8) 8)))
 
 
 (defn rainkis-hollow [mesh height]
@@ -422,11 +423,11 @@
     mesh))
 
 (comment
-  (time (save "rainkis-hollow-tetra" (rainkis-hollow (mm/tetra 12) 12)))
-  (time (save "rainkis-hollow-hexa" (rainkis-hollow (mm/hexa 10) 10)))
-  (time (save "rainkis-hollow-octa" (rainkis-hollow (mm/octa 8) 8)))
-  (time (save "rainkis-hollow-dodeca" (rainkis-hollow (mm/dodeca 7) 5)))
-  (time (save "rainkis-hollow-icosa" (rainkis-hollow (mm/icosa 7.5) 5)))
+  (time (save "rainkis-hollow-tetra" (rainkis-hollow (ph/tetra 12) 12)))
+  (time (save "rainkis-hollow-hexa" (rainkis-hollow (ph/hexa 10) 10)))
+  (time (save "rainkis-hollow-octa" (rainkis-hollow (ph/octa 8) 8)))
+  (time (save "rainkis-hollow-dodeca" (rainkis-hollow (ph/dodeca 7) 5)))
+  (time (save "rainkis-hollow-icosa" (rainkis-hollow (ph/icosa 7.5) 5)))
   )
 
 ; ==============================================================================
@@ -441,7 +442,7 @@
 ;      (mm/prn-fev)))
 ;
 ;(defn davinci-01 []
-;  (-> (mm/hexa 10)
+;  (-> (ph/hexa 10)
 ;      (davinci)))
 
 ;(def test-mesh (skel-06))
@@ -449,7 +450,7 @@
 ;(time (save "development-01" test-mesh))
 
 
-#_(def foo (-> (mm/dodeca 10)
+#_(def foo (-> (ph/dodeca 10)
                (mm/seed->mesh)
                (op/skeletonize
                  :thickness 2.0
@@ -457,6 +458,6 @@
                                  (when (= face (last faces)) 0.5)))
                (op/complexify :f-factor 0.5 :v-factor 0.25)))
 
-;(def foo (mm/seed->mesh (mm/hexa 10)))
+;(def foo (mm/seed->mesh (ph/hexa 10)))
 ;(def bar (g/tessellate foo))
 ;(def baz (op/compute-vertex-normals foo))

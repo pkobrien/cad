@@ -2,12 +2,10 @@
   (:refer-clojure :exclude [+ - * / == min max])
   (:require [clojure.core.matrix :refer :all]
             [clojure.core.matrix.operators :refer :all]
-            [thi.ng.geom.cuboid :as cu]
             [thi.ng.dstruct.core :as dc]
             [thi.ng.geom.core :as gc]
             [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
-            [thi.ng.geom.mesh.polyhedra :as ph]
             [clojure.string :as string]
             [thi.ng.geom.triangle :as tr]
             [thi.ng.geom.core.vector :refer [vec3]]))
@@ -147,7 +145,7 @@
 
 
 ; ==============================================================================
-; Vertex Functions (dependent on mesh having a :vert-npfs-map
+; Vertex Functions
 
 (defn vert-edges
   "Returns a vector of edges for a vertex in ccw order."
@@ -373,49 +371,8 @@
 ; ==============================================================================
 ; thi.ng.geom.types.GMesh
 
-;(defrecord GMesh [vertices normals fnormals vnormals edges faces attribs])
-;(thi.ng.geom.types.GMesh. {} #{} {} {} {} #{} {})
-; vertices {vert {:next nvert :prev pvert :f face}
-; edges {#{v1 v2} face}
-; faces #{}
-
 (defn fmesh [faces]
   (let [mesh (gm/gmesh)
         faces (set (filter unique-verts? faces))
         mesh (assoc mesh :faces faces)]
     mesh))
-
-
-; ==============================================================================
-; Platonic Solids
-
-(defn tetra
-  ([]
-   (tetra 12))
-  ([scale]
-   (-> (ph/tetrahedron scale) (fmesh))))
-
-(defn hexa
-  ([]
-   (hexa 10))
-  ([scale]
-   (let [origin (- (/ scale 2))]
-     (-> (cu/cuboid origin scale) (gc/faces) (fmesh)))))
-
-(defn octa
-  ([]
-   (octa 8))
-  ([scale]
-   (-> (ph/octahedron scale) (fmesh))))
-
-(defn dodeca
-  ([]
-   (dodeca 7))
-  ([scale]
-   (-> (ph/dodecahedron scale) (fmesh))))
-
-(defn icosa
-  ([]
-   (icosa 7.5))
-  ([scale]
-   (-> (ph/icosahedron scale) (fmesh))))
