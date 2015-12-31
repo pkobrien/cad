@@ -64,7 +64,7 @@
         dh (-> ph/dodecahedron (p-mesh 7) (g/translate (vec3 60 0 0)))
         ih (-> ph/icosahedron (p-mesh 7.5) (g/translate (vec3 80 0 0)))
         mesh (mesh-union [th oh hh ih dh])
-        mesh (op/colorize mesh)]
+        mesh (op/color-faces mesh)]
     mesh))
 
 (time (cad/save-x3d "output/sandbox/platonic-solids.x3d" (platonic-solids)))

@@ -1,8 +1,8 @@
 (ns cad.shapeways
   (:require [cad.core :as cad]
             [thi.ng.color.core :as col]
-            [cad.mesh.color :as mc]
-            [cad.mesh.core :as mm]
+            [cad.mesh.face-color :as fc]
+            [cad.mesh.core :as mc]
             [cad.mesh.operator :as op]
             [cad.mesh.polyhedron :as ph]))
 
@@ -18,15 +18,15 @@
 (defn spore []
   (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
-      (op/kis (mm/get-point-at-edge-count-height {3 2.5, 5 -10}))
+      (op/kis (mc/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
       (op/tess)
-      (mm/prn-face-count "Final")))
+      (mc/prn-face-count "Final")))
 
 (defn alien-spore []
   (-> (spore)
-      (op/colorize (mc/alien))
-      (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 3)))
+      (op/color-faces (fc/alien))
+      (op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.25)) 3)))
 
 ;(time (save "alien-spore" (alien-spore)))
 
@@ -35,7 +35,7 @@
                  (op/complexify :f-factor 0.2 :v-factor 0.2))
         complex-faces (:faces mesh)
         mesh (-> mesh
-                 (op/kis (mm/get-point-at-edge-count-height {5 -6}))
+                 (op/kis (mc/get-point-at-edge-count-height {5 -6}))
                  (op/skeletonize
                    :thickness 1
                    :get-f-factor (fn [mesh face]
@@ -44,19 +44,19 @@
                                      0.1)))
                  (op/rep op/catmull-clark 3)
                  (op/tess)
-                 (op/colorize (mc/normal-abs-rgb) (mc/cb col/invert))
-                 (op/rep #(op/colorize % (mc/blend-with-edge-neighbors 0.25)) 1)
-                 (mm/prn-face-count "Final"))]
+                 (op/color-faces (fc/normal-abs-rgb) (fc/cb col/invert))
+                 (op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.25)) 1)
+                 (mc/prn-face-count "Final"))]
     mesh))
 
 ;(time (save "alien-skel" (alien-skel)))
 
 (defn hexa-kis-cc3-kis "http://shpws.me/L0c3" []
   (-> (ph/hexa 10)
-      (op/kis (mm/get-point-at-height 10))
+      (op/kis (mc/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
-      (op/kis (mm/get-point-at-height -0.25))
-      (op/colorize (mc/normal-abs-rgb))))
+      (op/kis (mc/get-point-at-height -0.25))
+      (op/color-faces (fc/normal-abs-rgb))))
 
 ;(time (save "hexa-kis-cc3-kis" (hexa-kis-cc3-kis)))
 
@@ -68,7 +68,7 @@
                                       (when (#{4} (count face)) 0.25)))
       (op/rep op/catmull-clark 3)
       (op/tess)
-      (op/colorize (mc/area) (mc/cb #(-> % (col/rotate-hue 60) (col/invert))))))
+      (op/color-faces (fc/area) (fc/cb #(-> % (col/rotate-hue 60) (col/invert))))))
 
 ;(time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
 
@@ -82,15 +82,15 @@
 
 (defn smooth-kis [mesh height]
   (-> mesh
-      (op/kis (mm/get-point-at-height height))
+      (op/kis (mc/get-point-at-height height))
       (op/rep op/catmull-clark 3)
-      (op/kis (mm/get-point-at-height -0.25))
-      (mm/prn-face-count "Final")))
+      (op/kis (mc/get-point-at-height -0.25))
+      (mc/prn-face-count "Final")))
 
 (defn rainkis [mesh height]
   (-> mesh
       (smooth-kis height)
-      (op/colorize (mc/normal-abs-rgb))))
+      (op/color-faces (fc/normal-abs-rgb))))
 
 (comment
   (time (save "rainkis-tetra" (rainkis (ph/tetra 12) 12)))
@@ -103,7 +103,7 @@
 (defn custom [mesh]
   (-> mesh
       ;(op/colorize (mc/normal-abs) (mc/cb col/complementary))
-      (op/colorize (mc/normal-sum-mod1-hue))
+      (op/color-faces (fc/normal-sum-mod1-hue))
       ))
 
 ;(time (save "smooth-kis-custom-dodeca" (custom (smooth-kis (ph/dodeca 7) 5))))
