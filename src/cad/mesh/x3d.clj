@@ -1,6 +1,5 @@
 (ns cad.mesh.x3d
-  (:require [thi.ng.geom.core :as gc]
-            [cad.mesh.core :as mm]
+  (:require [cad.mesh.core :as mc]
             [clojure.string :as string]
             [clojure.data.xml :as xml]))
 
@@ -45,11 +44,11 @@
 (defn write-x3d
   "Writes the given mesh as X3D XML to output stream wrapper."
   [out mesh & {:keys [indent? units meta] :or {indent? false}}]
-  (let [faces (gc/faces mesh)
-        verts (mm/mesh-vert-set mesh)
-        face-color-map (:face-color-map mesh)
+  (let [faces (mc/faces mesh)
+        verts (mc/verts mesh)
+        face-color-map (mc/face-color-map mesh)
         face-colors (vec (set (vals face-color-map)))
-        face-normal-map (mm/mesh-face-normal-map mesh)
+        face-normal-map (mc/face-normal-map mesh)
         face-normals (vec (set (vals face-normal-map)))
         vindex (zipmap verts (range))
         cindex (zipmap face-colors (range))

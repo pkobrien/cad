@@ -1,7 +1,5 @@
 (ns cad.mesh.util
-  (:require [thi.ng.color.core :as col]
-            [thi.ng.geom.core :as gc]
-            [clojure.string :as string]))
+  (:require [thi.ng.color.core :as col]))
 
 
 ; ==============================================================================
@@ -60,24 +58,6 @@
 
 (defn zipmapf [f coll]
   (zipmap coll (map f coll)))
-
-
-; ==============================================================================
-; Printing/Debugging Helpers
-
-(defn prn-face-count
-  ([mesh]
-   (prn-face-count mesh "Mesh"))
-  ([mesh msg]
-   (prn (string/join " " [msg "Face-Count:" (count (gc/faces mesh))]))
-   mesh))
-
-(defn prn-sides-count
-  [mesh]
-  (prn (string/join " " ["Sides-Count:"
-                         (into (sorted-map)
-                               (frequencies (map count (gc/faces mesh))))]))
-  mesh)
 
 (defmacro spy [x]
   `(let [x# ~x]

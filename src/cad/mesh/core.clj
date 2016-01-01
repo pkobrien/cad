@@ -4,11 +4,11 @@
             [clojure.core.matrix.operators :refer :all]
             [thi.ng.dstruct.core :as dc]
             [thi.ng.geom.core :as gc]
-            [thi.ng.geom.gmesh :as gm]
             [thi.ng.geom.core.utils :as gu]
+            [thi.ng.geom.core.vector :as gv]
             [cad.mesh.util :as mu]
             [thi.ng.geom.triangle :as tr]
-            [thi.ng.geom.core.vector :refer [vec3]]))
+            [clojure.string :as string]))
 
 ;(set! *warn-on-reflection* true)
 ;(set! *unchecked-math* true)
@@ -17,15 +17,41 @@
 (set-current-implementation :vectorz)
 
 
+; ==============================================================================
+; Mesh Protocols
+
+(defprotocol IPolygonMesh
+  (faces [m])
+  (edges [m])
+  (verts [m])
+  (edge-faces-map [m])
+  (face-color-map [m])
+  (face-normal-map [m])
+  (vert-normal-map [m]))
+
+
+; ==============================================================================
+; Geometry Functions
+
+(defn vec3
+  [x y z]
+  (gv/vec3 x y z))
+
 (defn ortho-normal
   ([[a b c]] (ortho-normal a b c))
   ([a b] (gc/normalize (gc/cross a b)))
-  ([a b c] (vec3 (mapv (comp mu/round2safe mu/abs-zero)
-                       (gc/normalize (gc/cross (gc/- b a) (gc/- c a)))))))
+  ([a b c] (apply vec3 (mapv (comp mu/round2safe mu/abs-zero)
+                             (gc/normalize (gc/cross (gc/- b a) (gc/- c a)))))))
 
 
 ; ==============================================================================
 ; Face Functions
+
+(defn face-edges
+  "Returns a lazy seq of edges for a face."
+  [face]
+  (let [face (vec face)]
+    (map set (partition 2 1 (conj face (first face))))))
 
 (defn face-vert-pairs
   "Returns a lazy seq of vertex pairs for a face."
@@ -131,23 +157,21 @@
 
 
 ; ==============================================================================
-; Mesh Creation/Annotation Helper Functions
+; Indexing Functions
 
-(defn unique-verts? [face]
-  "Returns true if there are no duplicate vertices within the face."
-  (= (count face) (count (set face))))
-
-(defn edge-face-keyvals
+(defn- edge-face-keyvals
   [face]
-  (map (fn [pair] [(set pair) face]) (face-vert-pairs face)))
+  (map (fn [pair]
+         [(set pair) face])
+       (face-vert-pairs face)))
 
-(defn vert-face-keyvals
+(defn- vert-face-keyvals
   [face]
   (map (fn [vert]
          [vert face])
        face))
 
-(defn vert-npf-keyvals
+(defn- vert-npf-keyvals
   [face]
   (map (fn [[p c n]]
          [c {:next n :prev p :face face}])
@@ -155,19 +179,19 @@
 
 (defn mesh-edge-faces-map
   [mesh]
-  (mu/hashmap-set (mapcat edge-face-keyvals (gc/faces mesh))))
+  (mu/hashmap-set (mapcat edge-face-keyvals (faces mesh))))
 
 (defn mesh-face-normal-map
   [mesh]
-  (mu/zipmapf ortho-normal (gc/faces mesh)))
+  (mu/zipmapf ortho-normal (faces mesh)))
 
 (defn mesh-vert-faces-map
   [mesh]
-  (mu/hashmap-set (mapcat vert-face-keyvals (gc/faces mesh))))
+  (mu/hashmap-set (mapcat vert-face-keyvals (faces mesh))))
 
 (defn mesh-vert-npfs-map
   [mesh]
-  (mu/hashmap-set (mapcat vert-npf-keyvals (gc/faces mesh))))
+  (mu/hashmap-set (mapcat vert-npf-keyvals (faces mesh))))
 
 (defn mesh-vert-normal-map
   [mesh]
@@ -177,13 +201,17 @@
         xf (comp (map face-normal-map) (distinct))
         vnorm (fn [vert]
                 (->> (vert-faces-map vert)
-                     (transduce xf gc/+ (vec3))
+                     (transduce xf gc/+ (vec3 0.0 0.0 0.0))
                      (gc/normalize)))]
     (mu/zipmapf vnorm verts)))
 
+(defn mesh-edge-set
+  [mesh]
+  (into #{} (mapcat face-edges (faces mesh))))
+
 (defn mesh-vert-set
   [mesh]
-  (into #{} cat (gc/faces mesh)))
+  (into #{} cat (faces mesh)))
 
 
 ; ==============================================================================
@@ -210,7 +238,7 @@
           area (fn [face] [face (if (= 3 (count face))
                                   (apply gu/tri-area3 face)
                                   (poly-area face))])
-          area-map (into {} (map area (gc/faces mesh)))]
+          area-map (into {} (map area (faces mesh)))]
       (-> mesh
           (assoc-in [:face-area :map] area-map)
           (assoc-in [:face-area :min] (apply min (vals area-map)))
@@ -221,7 +249,7 @@
   (if (seq (:face-circ mesh))
     mesh
     (let [circ (fn [face] [face (gc/circumference (apply tr/triangle3 face))])
-          circ-map (into {} (map circ (gc/faces mesh)))]
+          circ-map (into {} (map circ (faces mesh)))]
       (-> mesh
           (assoc-in [:face-circ :map] circ-map)
           (assoc-in [:face-circ :min] (apply min (vals circ-map)))
@@ -232,7 +260,7 @@
   (if (seq (:face-dist mesh))
     mesh
     (let [dist (fn [face] [face (gc/dist (gu/centroid face) point)])
-          dist-map (into {} (map dist (gc/faces mesh)))]
+          dist-map (into {} (map dist (faces mesh)))]
       (-> mesh
           (assoc-in [:face-dist :map] dist-map)
           (assoc-in [:face-dist :min] (apply min (vals dist-map)))
@@ -261,37 +289,54 @@
         mesh (assoc mesh :vert-next-pf-map vnpf-map)]
     mesh))
 
+(defn assoc-edge-set
+  [mesh]
+  (mesh-assoc mesh :edge-set mesh-edge-set))
+
 (defn assoc-vert-set
   [mesh]
   (mesh-assoc mesh :vert-set mesh-vert-set))
 
 
 ; ==============================================================================
-; Mesh Protocols and Record
+; Printing/Debugging Helpers
 
-(defprotocol IPolygonMesh
-  (faces [m])
-  (verts [m]))
+(defn prn-face-count
+  ([mesh]
+   (prn-face-count mesh "Mesh"))
+  ([mesh msg]
+   (prn (string/join " " [msg "Face-Count:" (count (faces mesh))]))
+   mesh))
 
-(defrecord Mesh [faces]
-  IPolygonMesh
-  (faces [m] (:faces m))
-  (verts [m] (or (:verts m) (keys (:vert-npfs-map m)))))
-
-(defn mesh
-  ([]
-   (let [faces #{}]
-     (->Mesh faces)))
-  ([faces]
-   (let [faces (set (filter unique-verts? faces))]
-     (->Mesh faces))))
+(defn prn-sides-count
+  [mesh]
+  (prn (string/join " " ["Sides-Count:"
+                         (into (sorted-map)
+                               (frequencies (map count (faces mesh))))]))
+  mesh)
 
 
 ; ==============================================================================
-; thi.ng.geom.types.GMesh
+; Mesh Records
 
-(defn fmesh [faces]
-  (let [mesh (gm/gmesh)
-        faces (set (filter unique-verts? faces))
-        mesh (assoc mesh :faces faces)]
-    mesh))
+(defrecord FaceMesh [face-set]
+  IPolygonMesh
+  (faces [m] (:face-set m))
+  (edges [m] (or (:edge-set m) (keys (:edge-faces-map m)) (mesh-edge-set m)))
+  (verts [m] (or (:vert-set m) (keys (:vert-npfs-map m)) (mesh-vert-set m)))
+  (edge-faces-map [m] (or (:edge-faces-map m) (mesh-edge-faces-map m)))
+  (face-color-map [m] (:face-color-map m))
+  (face-normal-map [m] (or (:face-normal-map m) (mesh-face-normal-map m)))
+  (vert-normal-map [m] (or (:vert-normal-map m) (mesh-vert-normal-map m))))
+
+(defn unique-verts? [face]
+  "Returns true if there are no duplicate vertices within the face."
+  (= (count face) (count (set face))))
+
+(defn fmesh
+  ([]
+   (let [face-set #{}]
+     (->FaceMesh face-set)))
+  ([faces]
+   (let [face-set (set (filter unique-verts? faces))]
+     (->FaceMesh face-set))))
