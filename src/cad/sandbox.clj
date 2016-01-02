@@ -24,16 +24,16 @@
       (op/kis (mf/get-point-at-height height))
       (op/rep op/catmull-clark cc)
       (op/kis (mf/get-point-at-height -0.25))
-      (mu/prn-face-count)))
+      (mu/prn-face-count "Smooth")))
 
 (defn smooth [cc]
   (smooth-kis (ph/octa 10) 10 cc))
 
 (defn sphere [cc]
-  (-> (ph/octa 10)
+  (-> (ph/hexa 10)
       (op/rep op/catmull-clark cc)
       (op/kis)
-      (mu/prn-face-count)))
+      (mu/prn-face-count "Sphere")))
 
 (defn spore [cc]
   (-> (ph/dodeca 10)
@@ -42,7 +42,7 @@
       (op/kis (mf/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark cc)
       (op/tess)
-      (mu/prn-face-count)))
+      (mu/prn-face-count "Spore")))
 
 
 ; ==============================================================================
@@ -50,16 +50,16 @@
 
 (defn test-colorer [colorer]
   (do
-    (time (save "test-color-smooth" (-> (smooth 5) (op/color-faces (colorer)))))
-    (time (save "test-color-sphere" (-> (sphere 6) (op/color-faces (colorer)))))
-    (time (save "test-color-spore" (-> (spore 4) (op/color-faces (colorer)))))
+    (time (save "test-color-smooth" (-> (smooth 3) (op/color-faces (colorer)))))
+    (time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (colorer)))))
+    (time (save "test-color-spore" (-> (spore 3) (op/color-faces (colorer)))))
     colorer))
 
 ;(time (save "test-color-smooth" (-> (smooth 3) (op/color-faces (fc/normal-abs-rgb)))))
 
 ;(time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (fc/normal-abs-rgb)))))
 
-;(time (save "test-color-spore" (-> (spore 0) (op/color-faces (fc/normal-abs-rgb)))))
+;(time (save "test-color-spore" (-> (spore 3) (op/color-faces (fc/normal-abs-rgb)))))
 
 (comment (test-colorer fc/normal-sum-hue))
 
