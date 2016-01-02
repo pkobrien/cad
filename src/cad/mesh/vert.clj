@@ -1,6 +1,8 @@
 (ns cad.mesh.vert
   (:require [thi.ng.dstruct.core :as dc]
-            [cad.mesh.protocol :as mp]))
+            [cad.mesh.core :as mc]
+            [cad.mesh.protocol :as mp]
+            [clojure.core.matrix :as mx]))
 
 
 ; ==============================================================================
@@ -39,3 +41,15 @@
     (clojure.set/union
       (dc/value-set :next vert-npfs-map vert)
       (dc/value-set :prev vert-npfs-map vert))))
+
+(defn normal
+  "Returns the normal for the vertex as the average of the face normals."
+  [mesh vert]
+  (let [face-normal-map (mp/face-normal-map mesh)
+        vert-faces-map (mp/vert-faces-map mesh)
+        xf (comp (map face-normal-map) (distinct))
+        vnorm (fn [vert]
+                (->> (vert-faces-map vert)
+                     (transduce xf + (mc/vert 0.0 0.0 0.0))
+                     (mx/normalise)))]
+    (vnorm vert)))

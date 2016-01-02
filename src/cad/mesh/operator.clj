@@ -1,9 +1,11 @@
 (ns cad.mesh.operator
-  (:require [clojure.set]
+  (:refer-clojure :exclude [+ - * / == min max])
+  (:require [clojure.core.matrix.operators :refer :all]
+            [clojure.set]
             [cad.mesh.face-color :as fc]
             [cad.mesh.face-mesh :as fm]
             [thi.ng.geom.core :as gc]
-            [thi.ng.geom.core.utils :as gu]
+            [cad.mesh.core :as mc]
             [cad.mesh.face :as mf]
             [cad.mesh.mesh :as mm]
             [cad.mesh.protocol :as mp]
@@ -21,7 +23,7 @@
 (defn tess
   "Returns a tesselated mesh."
   [mesh]
-  (fm/fmesh (mapcat gu/tessellate-3 (mp/faces mesh))))
+  (fm/fmesh (mapcat mf/tessellate (mp/faces mesh))))
 
 
 ; ==============================================================================
@@ -32,10 +34,10 @@
   [mesh]
   (let [mesh (mm/assoc-vert-npfs-map mesh)
         f-faces (map (fn [face]
-                       (map gu/centroid (mf/vert-pairs face)))
+                       (map mc/centroid (mf/vert-pairs face)))
                      (mp/faces mesh))
         v-faces (map (fn [vert]
-                       (map gu/centroid (mv/edges mesh vert)))
+                       (map mc/centroid (mv/edges mesh vert)))
                      (mp/verts mesh))
         faces (concat f-faces v-faces)]
     (fm/fmesh faces)))
@@ -65,7 +67,7 @@
   ([mesh]
    (ortho mesh mf/get-centroid))
   ([mesh get-f-point]
-   (let [get-e-point (fn [edge] (gu/centroid (vec edge)))
+   (let [get-e-point (fn [edge] (mc/centroid (vec edge)))
          new-face (fn [[p c n] f-point e-points]
                     [(e-points #{p c}) c (e-points #{c n}) f-point])
          new-faces (fn [face f-point e-points]
@@ -101,11 +103,11 @@
    (color-faces mesh (fc/normal-abs-rgb) nil))
   ([mesh get-f-color]
    (color-faces mesh get-f-color nil))
-  ([mesh get-f-color cb]
+  ([mesh get-f-color color-mod]
    (let [[mesh get-fc] (get-f-color mesh)
          fcolors (into {} (for [face (mp/faces mesh)]
                             (let [color (get-fc mesh face)
-                                  color (if cb (cb color) color)]
+                                  color (if color-mod (color-mod color) color)]
                               [face color])))
          mesh (assoc mesh :face-color-map fcolors)]
      mesh)))
@@ -115,7 +117,7 @@
   [mesh & {:keys [f-factor v-factor] :or {f-factor 0.5 v-factor 0.25}}]
   (let [mesh (mm/assoc-vert-next-pf-map mesh)
         mesh (mm/assoc-vert-npfs-map mesh)
-        offset (fn [vert face] (gc/mix vert (gu/centroid face) f-factor))
+        offset (fn [vert face] (mc/mix vert (mf/centroid face) f-factor))
         fv-map (into {} (for [face (mp/faces mesh)]
                           [face (into {} (for [vert face]
                                            [vert (offset vert face)]))]))
@@ -134,7 +136,7 @@
         v->faces (fn [vert]
                    (let [vf-verts (mapv #(get-in fv-map [% vert])
                                         (mv/faces mesh vert))
-                         vf-vert (gc/mix (gu/centroid vf-verts) vert v-factor)
+                         vf-vert (mc/mix (mc/centroid vf-verts) vert v-factor)
                          vf-edges (mf/vert-pairs vf-verts)]
                      (mapv #(conj % vf-vert) vf-edges)))
         v-faces (mapcat v->faces (mp/verts mesh))
@@ -147,12 +149,14 @@
   (let [get-f-fact (fn [_ _] 0.25)
         get-f-factor (or get-f-factor get-f-fact)
         vert-normal-map (mp/vert-normal-map (tess mesh))
-        offset (fn [vert face f-factor] (gc/mix vert (gu/centroid face) f-factor))
-        offset-face (fn [face f-factor] (mapv #(offset % face f-factor) face))
+        offset (fn [vert face f-factor]
+                 (mc/mix vert (mc/centroid face) f-factor))
+        offset-face (fn [face f-factor]
+                      (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
                         (vec (for [vert (reverse outer-face)]
-                               (gc/+ vert (gc/* (vert-normal-map vert)
-                                                (- thickness))))))
+                               (+ vert
+                                  (* (vert-normal-map vert) (- thickness))))))
         new-face (fn [[c n] [c-off n-off]]
                    [c n n-off c-off])
         new-faces (fn [face face-off]
@@ -181,14 +185,14 @@
   [mesh & {:keys [get-f-point get-e-point get-v-point]}]
   (let [mesh (mm/assoc-vert-npfs-map mesh)
         get-ep (fn [edge e-faces f-points]
-                 (gu/centroid (concat (vec edge) (mapv f-points e-faces))))
+                 (mc/centroid (concat (vec edge) (mapv f-points e-faces))))
         get-vp (fn [mesh vertex]
-                 (let [f (gu/centroid (mapv gu/centroid
+                 (let [f (mc/centroid (mapv mf/centroid
                                             (mv/faces mesh vertex)))
                        vn (mv/neighbors mesh vertex)
                        n (count vn)
-                       r (gu/centroid (mapv #(gc/mix vertex %) vn))]
-                   (gc/addm (gc/madd r 2.0 f) (gc/* vertex (- n 3)) (/ 1.0 n))))
+                       r (mc/centroid (mapv #(mc/mix vertex % 0.5) vn))]
+                   (gc/addm (gc/madd r 2.0 f) (* vertex (- n 3)) (/ 1.0 n))))
         get-f-point (or get-f-point mf/get-centroid)
         get-e-point (or get-e-point get-ep)
         get-v-point (or get-v-point get-vp)
@@ -219,5 +223,5 @@
 (defn not-quite-catmull-clark
   "Return a mesh with additional faces and edge points for a smoothing effect."
   [mesh]
-  (let [get-e-point (fn [edge _ _] (gu/centroid (vec edge)))]
+  (let [get-e-point (fn [edge _ _] (mc/centroid (vec edge)))]
     (catmull-clark mesh :get-e-point get-e-point)))

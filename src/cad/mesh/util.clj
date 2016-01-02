@@ -1,5 +1,7 @@
 (ns cad.mesh.util
-  (:require [thi.ng.color.core :as col]))
+  (:require [thi.ng.color.core :as col]
+            [cad.mesh.protocol :as mp]
+            [clojure.string :as string]))
 
 
 ; ==============================================================================
@@ -74,3 +76,21 @@
   [f]
   (fn [rgba]
     @(f (col/rgba rgba))))
+
+
+; ==============================================================================
+; Printing/Debugging Helpers
+
+(defn prn-face-count
+  ([mesh]
+   (prn-face-count mesh "Mesh"))
+  ([mesh msg]
+   (prn (string/join " " [msg "Face-Count:" (count (mp/faces mesh))]))
+   mesh))
+
+(defn prn-sides-count
+  [mesh]
+  (prn (string/join " " ["Sides-Count:"
+                         (into (sorted-map)
+                               (frequencies (map count (mp/faces mesh))))]))
+  mesh)

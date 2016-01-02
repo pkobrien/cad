@@ -1,11 +1,17 @@
 (ns cad.mesh.mesh
-  (:require [thi.ng.geom.core :as gc]
-            [thi.ng.geom.core.utils :as gu]
-            [cad.mesh.core :as mc]
+  (:require [cad.mesh.core :as mc]
             [cad.mesh.face :as mf]
             [cad.mesh.protocol :as mp]
             [cad.mesh.util :as mu]
-            [thi.ng.geom.triangle :as tr]))
+            [cad.mesh.vert :as mv]))
+
+
+; ==============================================================================
+; General Functions
+
+(defn centroid
+  [mesh]
+  (mc/centroid (mp/verts mesh)))
 
 
 ; ==============================================================================
@@ -49,17 +55,13 @@
   [mesh]
   (mu/hashmap-set (mapcat vert-face-keyvals (mp/faces mesh))))
 
+(declare assoc-face-normal-map assoc-vert-faces-map)
+
 (defn vert-normal-map
   [mesh]
-  (let [face-normal-map (face-normal-map mesh)
-        vert-faces-map (vert-faces-map mesh)
-        verts (keys vert-faces-map)
-        xf (comp (map face-normal-map) (distinct))
-        vnorm (fn [vert]
-                (->> (vert-faces-map vert)
-                     (transduce xf gc/+ (mc/vec3 0.0 0.0 0.0))
-                     (gc/normalize)))]
-    (mu/zipmapf vnorm verts)))
+  (let [mesh (assoc-face-normal-map mesh)
+        mesh (assoc-vert-faces-map mesh)]
+    (mu/zipmapf (partial mv/normal mesh) (mp/verts mesh))))
 
 (defn vert-npfs-map
   [mesh]
@@ -91,13 +93,7 @@
   [mesh]
   (if (seq (:face-area mesh))
     mesh
-    (let [poly-area (fn [face]
-                      (let [cent (gu/centroid face)]
-                        (reduce + (map (fn [[v1 v2]] (gu/tri-area3 cent v1 v2))
-                                       (mf/vert-pairs face)))))
-          area (fn [face] [face (if (= 3 (count face))
-                                  (apply gu/tri-area3 face)
-                                  (poly-area face))])
+    (let [area (fn [face] [face (mf/area face)])
           area-map (into {} (map area (mp/faces mesh)))]
       (-> mesh
           (assoc-in [:face-area :map] area-map)
@@ -108,7 +104,7 @@
   [mesh]
   (if (seq (:face-circ mesh))
     mesh
-    (let [circ (fn [face] [face (gc/circumference (apply tr/triangle3 face))])
+    (let [circ (fn [face] [face (mf/circumference face)])
           circ-map (into {} (map circ (mp/faces mesh)))]
       (-> mesh
           (assoc-in [:face-circ :map] circ-map)
@@ -119,7 +115,7 @@
   [mesh point]
   (if (seq (:face-dist mesh))
     mesh
-    (let [dist (fn [face] [face (gc/dist (gu/centroid face) point)])
+    (let [dist (fn [face] [face (mf/distance face point)])
           dist-map (into {} (map dist (mp/faces mesh)))]
       (-> mesh
           (assoc-in [:face-dist :map] dist-map)
@@ -129,6 +125,10 @@
 (defn assoc-face-normal-map
   [mesh]
   (mesh-assoc mesh :face-normal-map face-normal-map))
+
+(defn assoc-vert-faces-map
+  [mesh]
+  (mesh-assoc mesh :vert-faces-map vert-faces-map))
 
 (defn assoc-vert-normal-map
   [mesh]
@@ -143,9 +143,11 @@
   (let [mesh (assoc-vert-npfs-map mesh)
         vert-npfs-map (:vert-npfs-map mesh)
         verts (keys vert-npfs-map)
-        next-pf (fn [{:keys [next prev face]}] [next {:prev prev :face face}])
+        next-pf (fn [{:keys [next prev face]}]
+                  [next {:prev prev :face face}])
         vnpf-map (into {} (for [vert verts]
-                            [vert (into {} (map next-pf (vert-npfs-map vert)))]))
+                            [vert (into {} (map next-pf
+                                                (vert-npfs-map vert)))]))
         mesh (assoc mesh :vert-next-pf-map vnpf-map)]
     mesh))
 

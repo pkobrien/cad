@@ -2,7 +2,7 @@
   (:require [cad.core :as cad]
             [thi.ng.color.core :as col]
             [cad.mesh.face-color :as fc]
-            [cad.mesh.core :as mc]
+            [cad.mesh.face :as mf]
             [cad.mesh.util :as mu]
             [cad.mesh.operator :as op]
             [cad.mesh.polyhedron :as ph]))
@@ -19,7 +19,7 @@
 (defn spore []
   (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
-      (op/kis (mc/get-point-at-edge-count-height {3 2.5, 5 -10}))
+      (op/kis (mf/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark 4)
       (op/tess)
       (mu/prn-face-count)))
@@ -36,7 +36,7 @@
                  (op/complexify :f-factor 0.2 :v-factor 0.2))
         complex-faces (:faces mesh)
         mesh (-> mesh
-                 (op/kis (mc/get-point-at-edge-count-height {5 -6}))
+                 (op/kis (mf/get-point-at-edge-count-height {5 -6}))
                  (op/skeletonize
                    :thickness 1
                    :get-f-factor (fn [mesh face]
@@ -54,9 +54,9 @@
 
 (defn hexa-kis-cc3-kis "http://shpws.me/L0c3" []
   (-> (ph/hexa 10)
-      (op/kis (mc/get-point-at-height 10))
+      (op/kis (mf/get-point-at-height 10))
       (op/rep op/catmull-clark 3)
-      (op/kis (mc/get-point-at-height -0.25))
+      (op/kis (mf/get-point-at-height -0.25))
       (op/color-faces (fc/normal-abs-rgb))))
 
 ;(time (save "hexa-kis-cc3-kis" (hexa-kis-cc3-kis)))
@@ -69,9 +69,8 @@
                                       (when (#{4} (count face)) 0.25)))
       (op/rep op/catmull-clark 3)
       (op/tess)
-      (op/color-faces (fc/area) (mu/color-mod #(-> %
-                                                   (col/rotate-hue 60)
-                                                   (col/invert))))))
+      (op/color-faces (fc/area)
+                      (mu/color-mod #(-> % (col/rotate-hue 60) (col/invert))))))
 
 ;(time (save "plutonic-2-dodeca" (plutonic (mm/dodeca 7))))
 
@@ -85,9 +84,9 @@
 
 (defn smooth-kis [mesh height]
   (-> mesh
-      (op/kis (mc/get-point-at-height height))
+      (op/kis (mf/get-point-at-height height))
       (op/rep op/catmull-clark 3)
-      (op/kis (mc/get-point-at-height -0.25))
+      (op/kis (mf/get-point-at-height -0.25))
       (mu/prn-face-count)))
 
 (defn rainkis [mesh height]
@@ -105,7 +104,6 @@
 
 (defn custom [mesh]
   (-> mesh
-      ;(op/colorize (mc/normal-abs) (mc/cb col/complementary))
       (op/color-faces (fc/normal-sum-mod1-hue))
       ))
 

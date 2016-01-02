@@ -1,8 +1,6 @@
 (ns cad.mesh.face-color
   (:require [clisk.live :as clisk]
             [thi.ng.color.core :as col]
-            [thi.ng.geom.core :as gc]
-            [thi.ng.geom.core.utils :as gu]
             [thi.ng.math.core :as math]
             [cad.mesh.face :as mf]
             [cad.mesh.protocol :as mp]
@@ -55,7 +53,7 @@
    (distance nil))
   ([point]
    (fn [mesh]
-     (let [point (or point (gc/centroid mesh))
+     (let [point (or point (mp/centroid mesh))
            mesh (mp/assoc-face-dist-map mesh point)
            min-dist (get-in mesh [:face-dist :min])
            max-dist (get-in mesh [:face-dist :max])
@@ -238,7 +236,7 @@
   (fn [mesh]
     (let [sampler (clisk/sampler (clisk/node colorer))
           fc (fn [_ face]
-               (let [[x y z] (gu/centroid face)
+               (let [[x y z] (mf/centroid face)
                      color (sampler [x y z 0])]
                  color))]
       [mesh fc])))
@@ -249,7 +247,7 @@
 
 (defn kitchen-sink []
   (fn [mesh]
-    (let [mesh-centroid (gc/centroid mesh)
+    (let [mesh-centroid (mp/centroid mesh)
           mesh (mp/assoc-face-area-map mesh)
           mesh (mp/assoc-face-circ-map mesh)
           mesh (mp/assoc-face-dist-map mesh mesh-centroid)

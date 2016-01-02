@@ -1,19 +1,14 @@
 (ns cad.mesh.face
-  (:require [thi.ng.geom.core :as gc]
-            [thi.ng.geom.core.utils :as gu]
+  (:refer-clojure :exclude [+ - * / == min max])
+  (:require [clojure.core.matrix.operators :refer :all]
             [cad.mesh.core :as mc]
+            [thi.ng.math.macros :as mm]
             [cad.mesh.protocol :as mp]
-            [cad.mesh.util :as mu]))
+            [clojure.core.matrix :as mx]))
 
 
 ; ==============================================================================
-; Face Functions
-
-(defn normal
-  ([[a b c]] (normal a b c))
-  ([a b] (gc/normalize (gc/cross a b)))
-  ([a b c] (apply mc/vec3 (mapv (comp mu/round2safe mu/abs-zero)
-                                (gc/normalize (gc/cross (gc/- b a) (gc/- c a)))))))
+; Base Functions
 
 (defn unique-verts? [face]
   "Returns true if there are no duplicate vertices within the face."
@@ -39,17 +34,68 @@
 
 
 ; ==============================================================================
+; Geometry Functions
+
+(defn- mag [[x y z]]
+  (Math/sqrt (mm/madd x x y y z z)))
+
+(defn- norm-sign3
+  [a b c] (mag (mx/cross (- b a) (- c a))))
+
+(defn- tri-area3
+  [a b c] (* 0.5 (norm-sign3 a b c)))
+
+(defn centroid
+  [face]
+  (mc/centroid face))
+
+(defn area
+  [face]
+  ((if (= 3 (count face))
+     (apply tri-area3 face)
+     (let [cent (centroid face)]
+       (reduce + (map (fn [[v1 v2]] (tri-area3 cent v1 v2))
+                      (vert-pairs face)))))))
+
+(defn circumference
+  [face]
+  (reduce + (map mx/distance (vert-pairs face))))
+
+(defn distance
+  [face point]
+  (mx/distance (centroid face) point))
+
+(defn normal
+  "Returns the ortho normal for a face based on the first three vertices."
+  ([[a b c]] (normal a b c))
+  ([a b c] (mc/normal a b c)))
+
+(defn tessellate-with-point
+  ([face]
+   (tessellate-with-point (centroid face) face))
+  ([point face]
+   (mapv (fn [[v1 v2]] [point v1 v2]) (vert-pairs face))))
+
+(defn tessellate
+  [face]
+  (condp = (count face)
+    3 [face]
+    4 (let [[a b c d] face] [[a b c] [a c d]])
+    (tessellate-with-point face)))
+
+
+; ==============================================================================
 ; Point Functions
 
 (defn get-point
   "Returns a point at height distance from face-point along the face normal."
   [face & {:keys [point height] :or {height 0}}]
-  (let [point (or point (gu/centroid face))]
-    (-> (take 3 face) (normal) (gc/* height) (gc/+ point))))
+  (let [point (or point (centroid face))]
+    (-> (normal face) (* height) (+ point))))
 
 (defn get-centroid
   [_ face]
-  (get-point face))
+  (centroid face))
 
 (defn get-point-at-height
   "Returns a function that returns a face paoint based on the given height."
