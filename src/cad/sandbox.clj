@@ -55,9 +55,9 @@
     (time (save "test-color-spore" (-> (spore 4) (op/color-faces (colorer)))))
     colorer))
 
-(time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (fc/normal-abs-rgb)))))
+(time (save "test-color-sphere" (-> (sphere 0) (op/color-faces (fc/normal-abs-rgb)))))
 
-;(time (save "test-color-spore" (-> (spore 3) (op/color-faces (fc/normal-abs-rgb)))))
+(time (save "test-color-spore" (-> (spore 0) (op/color-faces (fc/normal-abs-rgb)))))
 
 (comment (test-colorer fc/normal-sum-hue))
 
