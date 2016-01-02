@@ -51,5 +51,5 @@
         vnorm (fn [vert]
                 (->> (vert-faces-map vert)
                      (transduce xf + (mc/point 0.0 0.0 0.0))
-                     (mx/normalise)))]
+                     (mx/normalise!)))]
     (vnorm vert)))

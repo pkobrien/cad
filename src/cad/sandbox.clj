@@ -27,10 +27,10 @@
       (mu/prn-face-count)))
 
 (defn smooth [cc]
-  (smooth-kis (ph/hexa 10) 10 cc))
+  (smooth-kis (ph/octa 10) 10 cc))
 
 (defn sphere [cc]
-  (-> (ph/hexa 10)
+  (-> (ph/octa 10)
       (op/rep op/catmull-clark cc)
       (op/kis)
       (mu/prn-face-count)))
@@ -55,9 +55,11 @@
     (time (save "test-color-spore" (-> (spore 4) (op/color-faces (colorer)))))
     colorer))
 
-(time (save "test-color-sphere" (-> (sphere 0) (op/color-faces (fc/normal-abs-rgb)))))
+;(time (save "test-color-smooth" (-> (smooth 3) (op/color-faces (fc/normal-abs-rgb)))))
 
-(time (save "test-color-spore" (-> (spore 0) (op/color-faces (fc/normal-abs-rgb)))))
+;(time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (fc/normal-abs-rgb)))))
+
+;(time (save "test-color-spore" (-> (spore 0) (op/color-faces (fc/normal-abs-rgb)))))
 
 (comment (test-colorer fc/normal-sum-hue))
 

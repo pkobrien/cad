@@ -4,7 +4,6 @@
             [clojure.set]
             [cad.mesh.face-color :as fc]
             [cad.mesh.face-mesh :as fm]
-            [thi.ng.geom.core :as gc]
             [cad.mesh.core :as mc]
             [cad.mesh.face :as mf]
             [cad.mesh.mesh :as mm]
@@ -117,7 +116,7 @@
   [mesh & {:keys [f-factor v-factor] :or {f-factor 0.5 v-factor 0.25}}]
   (let [mesh (mm/assoc-vert-next-pf-map mesh)
         mesh (mm/assoc-vert-npfs-map mesh)
-        offset (fn [vert face] (mc/mix vert (mf/centroid face) f-factor))
+        offset (fn [vert face] (mc/lerp vert (mf/centroid face) f-factor))
         fv-map (into {} (for [face (mp/faces mesh)]
                           [face (into {} (for [vert face]
                                            [vert (offset vert face)]))]))
@@ -136,7 +135,7 @@
         v->faces (fn [vert]
                    (let [vf-verts (mapv #(get-in fv-map [% vert])
                                         (mv/faces mesh vert))
-                         vf-vert (mc/mix (mc/centroid vf-verts) vert v-factor)
+                         vf-vert (mc/lerp (mc/centroid vf-verts) vert v-factor)
                          vf-edges (mf/vert-pairs vf-verts)]
                      (mapv #(conj % vf-vert) vf-edges)))
         v-faces (mapcat v->faces (mp/verts mesh))
@@ -150,7 +149,7 @@
         get-f-factor (or get-f-factor get-f-fact)
         vert-normal-map (mp/vert-normal-map (tess mesh))
         offset (fn [vert face f-factor]
-                 (mc/mix vert (mc/centroid face) f-factor))
+                 (mc/lerp vert (mc/centroid face) f-factor))
         offset-face (fn [face f-factor]
                       (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
@@ -186,13 +185,12 @@
   (let [mesh (mm/assoc-vert-npfs-map mesh)
         get-ep (fn [edge e-faces f-points]
                  (mc/centroid (concat (vec edge) (mapv f-points e-faces))))
-        get-vp (fn [mesh vertex]
-                 (let [f (mc/centroid (mapv mf/centroid
-                                            (mv/faces mesh vertex)))
-                       vn (mv/neighbors mesh vertex)
+        get-vp (fn [mesh vert]
+                 (let [f (mc/centroid (mapv mf/centroid (mv/faces mesh vert)))
+                       vn (mv/neighbors mesh vert)
                        n (count vn)
-                       r (mc/centroid (mapv #(mc/mix vertex % 0.5) vn))]
-                   (gc/addm (gc/madd r 2.0 f) (* vertex (- n 3)) (/ 1.0 n))))
+                       r (mc/centroid (mapv #(mc/lerp vert % 0.5) vn))]
+                   (/ (+ f (* r 2) (* vert (- n 3))) n)))
         get-f-point (or get-f-point mf/get-centroid)
         get-e-point (or get-e-point get-ep)
         get-v-point (or get-v-point get-vp)

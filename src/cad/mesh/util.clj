@@ -20,6 +20,10 @@
 (def ^:const DEG (/ 180.0 PI))
 (def ^:const RAD (/ PI 180.0))
 
+(def ^:const PHI (/ (inc (Math/sqrt 5.0)) 2))
+(def ^:const SQRT2 (Math/sqrt 2))
+(def ^:const SQRT3 (Math/sqrt 3))
+
 
 ; ==============================================================================
 ; Helper Functions

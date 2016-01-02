@@ -1,5 +1,6 @@
 (ns cad.mesh.face-mesh
-  (:require [cad.mesh.face :as mf]
+  (:require [cad.mesh.core :as mc]
+            [cad.mesh.face :as mf]
             [cad.mesh.mesh :as mm])
   (:import (cad.mesh.protocol IPolygonMesh)))
 
