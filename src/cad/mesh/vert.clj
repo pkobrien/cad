@@ -50,6 +50,6 @@
         xf (comp (map face-normal-map) (distinct))
         vnorm (fn [vert]
                 (->> (vert-faces-map vert)
-                     (transduce xf + (mc/point 0.0 0.0 0.0))
+                     (transduce xf + (mc/point 0 0 0))
                      (mx/normalise!)))]
     (vnorm vert)))
