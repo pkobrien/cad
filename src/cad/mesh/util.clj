@@ -28,12 +28,9 @@
 ; ==============================================================================
 ; Helper Functions
 
-(defn abs [x]
-  (Math/abs x))
+(defn abs [v] (Math/abs v))
 
-(defn abs-zero
-  [x]
-  (if (zero? x) 0.0 x))
+(defn abs-zero ^double [^double v] (if (zero? v) 0.0 v))
 
 (defn degrees [theta] (* (double theta) DEG))
 

@@ -1,6 +1,7 @@
 (ns cad.mesh.core
   (:refer-clojure :exclude [+ - * / == min max])
   (:require [clojure.core.matrix.operators :refer :all]
+            [cad.mesh.util :as mu]
             [clojure.core.matrix :as mx])
   (:import [mikera.vectorz Vector3]))
 
@@ -41,16 +42,9 @@
   (let [result (mx/array v1)]
     (mx/scale-add! result (- 1.0 amount) v2 amount)))
 
-;(defn normal
-;  "Returns the ortho normal of the first three points passed in."
-;  ([[a b c]] (normal a b c))
-;  ;([a b] (gc/normalize (gc/cross a b)))
-;  ([a b c] (apply point (mapv (comp mu/round2safe mu/abs-zero)
-;                              (mx/normalise (mx/cross (- b a) (- c a)))))))
-
 (defn normal
   "Returns the ortho normal of the first three points passed in."
   ([[a b c]]
    (normal a b c))
   ([a b c]
-   (mx/normalise! (mx/cross (mx/sub b a) (mx/sub c a)))))
+   (mx/emap! mu/abs-zero (mx/normalise! (mx/cross (mx/sub b a) (mx/sub c a))))))
