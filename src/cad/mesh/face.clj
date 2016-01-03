@@ -27,7 +27,7 @@
     (partition 2 1 (conj face (first face)))))
 
 (defn vert-triples
-  "Returns a lazy seq of vertex triples - [prev curr next] - for a face."
+  "Returns a lazy seq of vertex triples - (prev curr next) - for a face."
   [face]
   (let [face (vec face)]
     (partition 3 1 (cons (peek face) (conj face (first face))))))
@@ -59,7 +59,7 @@
 
 (defn circumference
   [face]
-  (reduce + (map mx/distance (vert-pairs face))))
+  (reduce + (map (fn [[v1 v2]] (mx/distance v1 v2)) (vert-pairs face))))
 
 (defn distance
   [face point]
