@@ -19,11 +19,6 @@
   [x y z]
   (Vector3/of x y z))
 
-(defn vertex
-  "Returns a normalized and scaled Vector3 vertex."
-  [scale [x y z]]
-  (-> (point x y z) (mx/normalise!) (mx/mul! scale)))
-
 ;(defn centroid
 ;  "Returns the point at the barycenter of the collection of points."
 ;  [[x & xs :as coll]]

@@ -16,6 +16,8 @@
   (edge-faces-map [m])
   (face-color-map [m])
   (face-normal-map [m])
+  (scale [m factor])
+  (scale! [m factor])
   (vert-faces-map [m])
   (vert-normal-map [m])
   (vert-npfs-map [m]))

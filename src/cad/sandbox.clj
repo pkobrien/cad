@@ -17,17 +17,46 @@
 
 
 ; ==============================================================================
+; Platonic Solids
+
+(defn solidify [shaper scale cc]
+  (mu/spy shaper)
+  (-> (shaper scale)
+      (mu/prn-sides-count)
+      (op/rep op/catmull-clark cc)
+      (op/kis)
+      (mu/prn-face-count (str "Scale:" scale " CC:" cc))))
+
+;(time (save "test-tetra" (-> (solidify ph/tetra 10 0) (op/color-faces))))
+;(time (save "test-hexa" (-> (solidify ph/hexa 10 0) (op/color-faces))))
+;(time (save "test-octa" (-> (solidify ph/octa 10 0) (op/color-faces))))
+;(time (save "test-dodeca" (-> (solidify ph/dodeca 10 0) (op/color-faces))))
+;(time (save "test-icosa" (-> (solidify ph/icosa 10 0) (op/color-faces))))
+
+
+; ==============================================================================
 ; Interesting Shapes
 
-(defn smooth-kis [mesh height cc]
+(defn complex [mesh cx cc]
   (-> mesh
-      (op/kis (mf/get-point-at-height height))
+      (op/rep op/complexify cx)
+      (op/rep op/catmull-clark cc)
+      (op/tess)
+      (mu/prn-face-count (str "Complex CX:" cx " CC:" cc))))
+
+(defn ortho [cc]
+  (-> (ph/dodeca 10)
+      (op/ortho (mf/get-point-at-height 0))
+      (op/rep op/catmull-clark cc)
+      (op/tess)
+      (mu/prn-face-count (str "Ortho CC:" cc))))
+
+(defn sparkle [cc]
+  (-> (ph/octa 10)
+      (op/kis (mf/get-point-at-height 10))
       (op/rep op/catmull-clark cc)
       (op/kis (mf/get-point-at-height -0.25))
-      (mu/prn-face-count (str "Smooth CC:" cc))))
-
-(defn smooth [cc]
-  (smooth-kis (ph/octa 10) 10 cc))
+      (mu/prn-face-count (str "Sparkle CC:" cc))))
 
 (defn sphere [cc]
   (-> (ph/hexa 10)
@@ -44,24 +73,40 @@
       (op/tess)
       (mu/prn-face-count (str "Spore CC:" cc))))
 
+(defn tunnel [mesh cc]
+  (let [windows (mp/faces mesh)
+        ends #{(first windows) (last windows)}
+        mesh (-> mesh
+                 (op/skeletonize
+                   :thickness 3
+                   :get-f-factor (fn [_ face] (when (ends face) 0.75)))
+                 (op/skeletonize
+                   :thickness 1
+                   :get-f-factor (fn [_ face] (when (windows face) 0.1)))
+                 (op/rep op/catmull-clark cc)
+                 (op/kis)
+                 (mu/prn-face-count (str "Tunnel CC:" cc)))]
+    mesh))
+
+;(time (save "test-complex" (-> (complex (ph/dodeca 10) 1 0) (op/color-faces))))
+;(time (save "test-ortho" (-> (ortho 0) (op/color-faces))))
+;(time (save "test-sparkle" (-> (sparkle 3) (op/color-faces))))
+;(time (save "test-sphere" (-> (sphere 0) (op/color-faces))))
+;(time (save "test-spore" (-> (spore 4) (op/color-faces))))
+;(time (save "test-tunnel" (-> (tunnel (ph/dodeca 10) 0) (op/color-faces))))
+
 
 ; ==============================================================================
 ; Color Testing
 
 (defn test-colorer [colorer]
   (do
-    (time (save "test-color-smooth" (-> (smooth 3) (op/color-faces (colorer)))))
+    (time (save "test-color-sparkle" (-> (sparkle 3) (op/color-faces (colorer)))))
     (time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (colorer)))))
     (time (save "test-color-spore" (-> (spore 3) (op/color-faces (colorer)))))
     colorer))
 
-;(time (save "test-color-smooth" (-> (smooth 3) (op/color-faces (fc/normal-abs-rgb)))))
-
-;(time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (fc/normal-abs-rgb)))))
-
-;(time (save "test-color-spore" (-> (spore 4) (op/color-faces (fc/normal-abs-rgb)))))
-
-(comment (test-colorer fc/normal-sum-hue))
+(comment (test-colorer fc/circumference))
 
 
 ; ==============================================================================
@@ -78,7 +123,7 @@
       (op/rep #(op/color-faces % (fc/blend-with-vertex-only-neighbors 0.1)) 3)
       ;(op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.1)) 3)
       ;(op/rep #(op/color-faces % (fc/blend-with-vertex-neighbors 0.1)) 3)
-      (mu/prn-face-count (str "CC:" cc))))
+      (mu/prn-face-count (str "Ambo-01 CC:" cc))))
 
 ;(time (save "ambo-01" (ambo-01 (ph/dodeca 10) 3)))
 
@@ -105,16 +150,19 @@
 
 ;(time (save "ambo-03" (ambo-03)))
 
-(defn complexify-01 []
-  (-> (ph/dodeca 10)
-      (op/complexify :f-factor 0.4 :v-factor 0.25)
-      (op/complexify :f-factor 0.2 :v-factor 0.50)
-      (op/complexify :f-factor 0.1 :v-factor 0.75)
+(defn complexify-01 [mesh cc]
+  (-> mesh
+      (op/complexify :f-factor 0.8 :v-factor 0.5)
+      ;(op/complexify :f-factor 0.4 :v-factor 0.25)
+      ;(op/complexify :f-factor 0.2 :v-factor 0.50)
+      ;(op/complexify :f-factor 0.1 :v-factor 0.75)
+      (op/rep op/catmull-clark cc)
       (op/tess)
-      (op/color-faces)
-      (mu/prn-face-count)))
+      (op/color-faces (fc/circumference))
+      ;(op/color-faces)
+      (mu/prn-face-count (str "Complexify-01 CC:" cc))))
 
-;(time (save "complexify-01" (complexify-01)))
+;(time (save "complexify-01" (complexify-01 (ph/dodeca 10) 0)))
 
 (defn complexify-02 []
   (-> (ph/dodeca 10)

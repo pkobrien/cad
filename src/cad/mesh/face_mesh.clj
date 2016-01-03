@@ -1,7 +1,9 @@
 (ns cad.mesh.face-mesh
   (:require [cad.mesh.core :as mc]
             [cad.mesh.face :as mf]
-            [cad.mesh.mesh :as mm])
+            [cad.mesh.mesh :as mm]
+            [cad.mesh.protocol :as mp]
+            [clojure.core.matrix :as mx])
   (:import (cad.mesh.protocol IPolygonMesh)))
 
 
@@ -19,6 +21,8 @@
   (edge-faces-map [m] (or (:edge-faces-map m) (mm/edge-faces-map m)))
   (face-color-map [m] (:face-color-map m))
   (face-normal-map [m] (or (:face-normal-map m) (mm/face-normal-map m)))
+  (scale [m factor] (mx/scale (vec (mp/verts m)) factor) m)
+  (scale! [m factor] (mx/scale! (vec (mp/verts m)) factor) m)
   (vert-faces-map [m] (or (:vert-faces-map m) (mm/vert-faces-map m)))
   (vert-normal-map [m] (or (:vert-normal-map m) (mm/vert-normal-map m)))
   (vert-npfs-map [m] (or (:vert-npfs-map m) (mm/vert-npfs-map m))))
