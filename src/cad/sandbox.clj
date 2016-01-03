@@ -24,7 +24,7 @@
       (op/kis (mf/get-point-at-height height))
       (op/rep op/catmull-clark cc)
       (op/kis (mf/get-point-at-height -0.25))
-      (mu/prn-face-count "Smooth")))
+      (mu/prn-face-count (str "Smooth CC:" cc))))
 
 (defn smooth [cc]
   (smooth-kis (ph/octa 10) 10 cc))
@@ -33,7 +33,7 @@
   (-> (ph/hexa 10)
       (op/rep op/catmull-clark cc)
       (op/kis)
-      (mu/prn-face-count "Sphere")))
+      (mu/prn-face-count (str "Sphere CC:" cc))))
 
 (defn spore [cc]
   (-> (ph/dodeca 10)
@@ -42,7 +42,7 @@
       (op/kis (mf/get-point-at-edge-count-height {3 2.5, 5 -10}))
       (op/rep op/catmull-clark cc)
       (op/tess)
-      (mu/prn-face-count "Spore")))
+      (mu/prn-face-count (str "Spore CC:" cc))))
 
 
 ; ==============================================================================
@@ -59,7 +59,7 @@
 
 ;(time (save "test-color-sphere" (-> (sphere 3) (op/color-faces (fc/normal-abs-rgb)))))
 
-;(time (save "test-color-spore" (-> (spore 3) (op/color-faces (fc/normal-abs-rgb)))))
+;(time (save "test-color-spore" (-> (spore 4) (op/color-faces (fc/normal-abs-rgb)))))
 
 (comment (test-colorer fc/normal-sum-hue))
 
