@@ -68,7 +68,7 @@
   (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
       (mu/prn-sides-count)
-      (op/kis (mf/get-point-at-edge-count-height {3 2.5, 5 -10}))
+      (op/kis (mf/get-point-at-edge-count-height {3 1.5, 5 -5}))
       (op/rep op/catmull-clark cc)
       (op/tess)
       (mu/prn-face-count (str "Spore CC:" cc))))
@@ -88,12 +88,12 @@
                  (mu/prn-face-count (str "Tunnel CC:" cc)))]
     mesh))
 
-;(time (save "test-complex" (-> (complex (ph/dodeca 10) 1 0) (op/color-faces))))
-;(time (save "test-ortho" (-> (ortho 0) (op/color-faces))))
+;(time (save "test-complex" (-> (complex (ph/dodeca 10) 1 3) (op/color-faces))))
+;(time (save "test-ortho" (-> (ortho 3) (op/color-faces))))
 ;(time (save "test-sparkle" (-> (sparkle 3) (op/color-faces))))
-;(time (save "test-sphere" (-> (sphere 0) (op/color-faces))))
-;(time (save "test-spore" (-> (spore 4) (op/color-faces))))
-;(time (save "test-tunnel" (-> (tunnel (ph/dodeca 10) 0) (op/color-faces))))
+;(time (save "test-sphere" (-> (sphere 3) (op/color-faces))))
+;(time (save "test-spore" (-> (spore 3) (op/color-faces))))
+;(time (save "test-tunnel" (-> (tunnel (ph/dodeca 10) 3) (op/color-faces))))
 
 
 ; ==============================================================================
@@ -137,18 +137,21 @@
 
 ;(time (save "ambo-02" (ambo-02)))
 
-(defn ambo-03 []
+(defn ambo-03 [cc]
   (-> (ph/dodeca 10)
       (op/rep op/ambo 3)
       (mu/prn-sides-count)
       (op/kis (mf/get-point-at-edge-count-height {4 -0.75, 5 -7.0}))
       (mu/prn-sides-count)
-      (op/rep op/catmull-clark 3)
+      (op/rep op/catmull-clark cc)
+      (mu/prn-sides-count)
+      (op/tess)
+      (mu/prn-sides-count)
       (op/color-faces (fc/normal-abs-rgb))
       (op/rep #(op/color-faces % (fc/blend-with-edge-neighbors 0.25)) 12)
-      (mu/prn-face-count)))
+      (mu/prn-face-count (str "Ambo-03 CC:" cc))))
 
-;(time (save "ambo-03" (ambo-03)))
+;(time (save "ambo-03" (ambo-03 3)))
 
 (defn complexify-01 [mesh cc]
   (-> mesh
@@ -157,7 +160,7 @@
       ;(op/complexify :f-factor 0.2 :v-factor 0.50)
       ;(op/complexify :f-factor 0.1 :v-factor 0.75)
       (op/rep op/catmull-clark cc)
-      (op/tess)
+      (op/kis)
       (op/color-faces (fc/circumference))
       ;(op/color-faces)
       (mu/prn-face-count (str "Complexify-01 CC:" cc))))

@@ -1,14 +1,13 @@
 (ns cad.mesh.operator
-  (:refer-clojure :exclude [+ - * / == min max])
-  (:require [clojure.core.matrix.operators :refer :all]
-            [clojure.set]
+  (:require [clojure.set]
             [cad.mesh.face-color :as fc]
             [cad.mesh.face-mesh :as fm]
             [cad.mesh.core :as mc]
             [cad.mesh.face :as mf]
             [cad.mesh.mesh :as mm]
             [cad.mesh.protocol :as mp]
-            [cad.mesh.vert :as mv]))
+            [cad.mesh.vert :as mv]
+            [clojure.core.matrix :as mx]))
 
 
 ; ==============================================================================
@@ -154,8 +153,8 @@
                       (mapv #(offset % face f-factor) face))
         opposite-face (fn [outer-face thickness]
                         (vec (for [vert (reverse outer-face)]
-                               (+ vert
-                                  (* (vert-normal-map vert) (- thickness))))))
+                               (mx/add vert
+                                  (mx/scale (vert-normal-map vert) (- thickness))))))
         new-face (fn [[c n] [c-off n-off]]
                    [c n n-off c-off])
         new-faces (fn [face face-off]
@@ -190,7 +189,7 @@
                        vn (mv/neighbors mesh vert)
                        n (count vn)
                        r (mc/centroid (mapv #(mc/lerp vert % 0.5) vn))]
-                   (/ (+ f (* r 2) (* vert (- n 3))) n)))
+                   (mx/div! (mx/add! f (mx/mul! r 2) (mx/mul vert (- n 3))) n)))
         get-f-point (or get-f-point mf/get-centroid)
         get-e-point (or get-e-point get-ep)
         get-v-point (or get-v-point get-vp)

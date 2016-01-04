@@ -1,7 +1,5 @@
 (ns cad.mesh.face
-  (:refer-clojure :exclude [+ - * / == min max])
-  (:require [clojure.core.matrix.operators :refer :all]
-            [cad.mesh.core :as mc]
+  (:require [cad.mesh.core :as mc]
             [thi.ng.math.macros :as mm]
             [cad.mesh.protocol :as mp]
             [clojure.core.matrix :as mx]))
@@ -91,7 +89,7 @@
   "Returns a point at height distance from face-point along the face normal."
   [face & {:keys [point height] :or {height 0}}]
   (let [point (or point (centroid face))]
-    (-> (normal face) (* height) (+ point))))
+    (-> (normal face) (mx/mul! height) (mx/add! point))))
 
 (defn get-centroid
   [_ face]

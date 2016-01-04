@@ -1,7 +1,5 @@
 (ns cad.mesh.core
-  (:refer-clojure :exclude [+ - * / == min max])
-  (:require [clojure.core.matrix.operators :refer :all]
-            [cad.mesh.util :as mu]
+  (:require [cad.mesh.util :as mu]
             [clojure.core.matrix :as mx])
   (:import [mikera.vectorz Vector3]))
 
